@@ -1,0 +1,7 @@
+/Users/emrecavus/IdeaProjects/Back-end/src/main/java/com/cs308/backend/BackEndApplication.java
+/Users/emrecavus/IdeaProjects/Back-end/src/main/java/com/cs308/backend/config/SecurityConfig.java
+/Users/emrecavus/IdeaProjects/Back-end/src/main/java/com/cs308/backend/controllers/AuthController.java
+/Users/emrecavus/IdeaProjects/Back-end/src/main/java/com/cs308/backend/models/User.java
+/Users/emrecavus/IdeaProjects/Back-end/src/main/java/com/cs308/backend/repositories/UserRepository.java
+/Users/emrecavus/IdeaProjects/Back-end/src/main/java/com/cs308/backend/services/UserChecks.java
+/Users/emrecavus/IdeaProjects/Back-end/src/main/java/com/cs308/backend/services/UserService.java
