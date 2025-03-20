@@ -5,6 +5,7 @@ import org.springframework.data.annotation.Id;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.List;
 
 import com.cs308.backend.models.*;
 @Data
@@ -13,7 +14,7 @@ import com.cs308.backend.models.*;
 @Document(collection = "categories")
 public class Category {
     @Id
-    private Product[] theProducts;
+    private String categoryId;
+    private List<String> productIds;
     private String categoryName;
-
 }
