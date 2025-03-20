@@ -16,6 +16,6 @@ public class Review {
     private double rating;
     private String comment;
     private boolean isVerified;
-    // There will be a user id here (foreign key) //
-
+    private String userId;
+    private String productId;
 }
