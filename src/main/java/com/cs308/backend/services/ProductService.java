@@ -81,21 +81,6 @@ public class ProductService {
         }
     }
 
-    public Product purchaseOperations(String productId) {
-        Optional<Product> productOptional = productRepository.findById(productId);
-        if (productOptional.isPresent()) {
-            Product product = productOptional.get();
-            int currentCount = product.getStockCount();
-            if (currentCount < 1)
-                throw new IllegalArgumentException("No available stocks!");
-            currentCount -= 1;
-            product.setStockCount(currentCount);
-            return productRepository.save(product);
-        }
-        else {
-            throw new NoSuchElementException("Product not found!");
-        }
-    }
 
 
     public void deleteProduct(String productId) {
