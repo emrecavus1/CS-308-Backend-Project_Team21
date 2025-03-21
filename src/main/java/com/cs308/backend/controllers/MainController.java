@@ -75,5 +75,25 @@ public class MainController {
         return ResponseEntity.ok(approved);
     }
 
+    @PostMapping("/postReview")
+    public ResponseEntity<Review> postReview(@RequestBody Review review) {
+        Review savedReview = reviewService.postReview(review);
+        return ResponseEntity.ok(savedReview);
+    }
+
+    @PutMapping("/updatePrice/{productId}/{newPrice}")
+    public ResponseEntity<Product> updatePrice(@PathVariable String productId, @PathVariable double newPrice) {
+        Product updatedProduct = productService.setPrice(productId, newPrice);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
+    @PatchMapping("/updateProduct/{productId}")
+    public ResponseEntity<Product> updateProduct(@PathVariable String productId, @RequestBody Map<String, Object> updates) {
+        Product updatedProduct = productService.updateProduct(productId, updates);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
+
+
 
 }

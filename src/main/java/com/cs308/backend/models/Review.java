@@ -13,6 +13,7 @@ import com.cs308.backend.models.*;
 @Document(collection = "reviews")
 public class Review {
     @Id
+    private String reviewId;
     private double rating;
     private String comment;
     private boolean isVerified;

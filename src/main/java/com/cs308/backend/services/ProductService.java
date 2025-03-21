@@ -130,4 +130,44 @@ public class ProductService {
     }
 
 
+    public Product updateProduct(String productId, Map<String, Object> updates) {
+        Optional<Product> productOptional = productRepository.findById(productId);
+        if (productOptional.isPresent()) {
+            Product product = productOptional.get();
+
+            // Update product name if provided
+            if (updates.containsKey("productName")) {
+                product.setProductName((String) updates.get("productName"));
+            }
+
+            // Update product info if provided
+            if (updates.containsKey("productInfo")) {
+                product.setProductInfo((String) updates.get("productInfo"));
+            }
+
+            // Update price if provided
+            if (updates.containsKey("price")) {
+                // Convert the value to a double. Adjust as needed if your client sends a different type.
+                product.setPrice(Double.parseDouble(updates.get("price").toString()));
+            }
+
+            // Update stock count if provided
+            if (updates.containsKey("stockCount")) {
+                product.setStockCount(Integer.parseInt(updates.get("stockCount").toString()));
+            }
+
+            // Add other fields as needed
+            // e.g., if you allow imageUrl changes:
+            if (updates.containsKey("imageUrl")) {
+                product.setImageUrl((String) updates.get("imageUrl"));
+            }
+
+            return productRepository.save(product);
+        } else {
+            throw new NoSuchElementException("Product not found with ID: " + productId);
+        }
+    }
+
+
+
 }

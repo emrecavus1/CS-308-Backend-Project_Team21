@@ -10,8 +10,11 @@ import java.util.*;
 @Service
 public class ReviewService {
     private final ReviewRepository reviewRepository;
-    public ReviewService(ReviewRepository reviewRepository) {
+    private final ProductRepository productRepository;
+
+    public ReviewService(ReviewRepository reviewRepository, ProductRepository productRepository) {
         this.reviewRepository = reviewRepository;
+        this.productRepository = productRepository;
     }
 
     public List<Review> findByUserId(String userId) {
@@ -36,5 +39,29 @@ public class ReviewService {
             throw new IllegalArgumentException("Review not found with ID: " + reviewId);
         }
     }
+
+    public Review postReview(Review review) {
+        // Ensure the review is unverified by default
+        review.setVerified(false);
+
+        // Save the review to the database
+        Review savedReview = reviewRepository.save(review);
+
+        // Retrieve the product associated with the review
+        Product product = productRepository.findById(review.getProductId())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + review.getProductId()));
+
+        // Initialize the reviewIds list if null, then add the new review's id
+        if (product.getReviewIds() == null) {
+            product.setReviewIds(new ArrayList<>());
+        }
+        product.getReviewIds().add(savedReview.getReviewId());
+
+        // Save the updated product
+        productRepository.save(product);
+
+        return savedReview;
+    }
+
 
 }
