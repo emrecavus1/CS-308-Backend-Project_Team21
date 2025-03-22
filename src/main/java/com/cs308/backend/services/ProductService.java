@@ -17,7 +17,7 @@ public class ProductService {
         this.categoryRepository = categoryRepository;
     }
 
-    public ResponseEntity<String> addProduct(Product product, String name, String info, String categoryName, int stock) {
+    public ResponseEntity<String> addProduct(Product product, String name, String info, String categoryName, int stock, String imageUrl) {
         if (productRepository.findByProductNameIgnoreCase(name) != null) {
             return ResponseEntity.badRequest().body("Product with this name already exists!");
         }
@@ -47,6 +47,12 @@ public class ProductService {
         }
         product.setStockCount(stock);
 
+        if (imageUrl == null || imageUrl.isEmpty())
+        {
+            return ResponseEntity.badRequest().body("Image URL cannot be empty!");
+        }
+
+        product.setImageUrl(imageUrl);
         Product savedProduct = productRepository.save(product);
         category.getProductIds().add(savedProduct.getProductId()); // Add the newly created product's ID
         categoryRepository.save(category);  // Save the updated category
