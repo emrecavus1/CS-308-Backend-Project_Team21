@@ -17,5 +17,9 @@ public interface ProductRepository extends MongoRepository<Product, String> {
     // Find all products that are in stock
     List<Product> findByStockCountGreaterThan(int minStock);
 
+    List<Product> findByProductNameContainingIgnoreCaseOrProductInfoContainingIgnoreCase(
+            String productName, String productInfo);
+
+
 }
 
