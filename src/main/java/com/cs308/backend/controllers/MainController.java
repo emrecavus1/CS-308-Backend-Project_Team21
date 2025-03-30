@@ -110,5 +110,12 @@ public class MainController {
         return cartService.getProductsInCart(userId);
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<List<Product>> searchProducts(@RequestParam String query) {
+        List<Product> products = productService.searchProducts(query);
+        return ResponseEntity.ok(products);
+    }
+
+
 
 }
