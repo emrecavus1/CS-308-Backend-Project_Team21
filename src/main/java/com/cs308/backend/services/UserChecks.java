@@ -122,6 +122,11 @@ public class UserChecks {
     }
 
     public ResponseEntity<String> roleChecks (String role) {
+        if (role == null) {
+            return ResponseEntity.badRequest()
+                    .body("Role is null. Must be Customer, Product Manager, or Sales Manager.");
+        }
+
         String[] typeOfRoles = {"Customer", "Product Manager", "Sales Manager"};
 
         boolean roleFound = false;
@@ -129,6 +134,7 @@ public class UserChecks {
         for (String theRole : typeOfRoles) {
             if (role.equalsIgnoreCase(theRole)) {
                 roleFound = true;
+                break;
             }
         }
         if (!roleFound) {

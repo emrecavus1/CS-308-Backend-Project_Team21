@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Register</title>
+  <script>
+    // Validate that password and confirmPassword match
+    function validatePassword() {
+      var password = document.getElementById("password").value;
+      var confirmPassword = document.getElementById("confirmPassword").value;
+      if (password !== confirmPassword) {
+        document.getElementById("passwordError").innerText = "Passwords do not match!";
+        return false;
+      } else {
+        document.getElementById("passwordError").innerText = "";
+        return true;
+      }
+    }
+  </script>
+</head>
+<body>
+<h2>Register</h2>
+<form action="/api/auth/signup" method="post" onsubmit="return validatePassword();">
+  <!-- First name and Surname fields -->
+  <label for="name">First Name:</label>
+  <input type="text" id="name" name="name" required/><br/><br/>
+
+  <label for="surname">Surname:</label>
+  <input type="text" id="surname" name="surname" required/><br/><br/>
+
+  <!-- Email field -->
+  <label for="email">Email:</label>
+  <input type="email" id="email" name="email" required/><br/><br/>
+
+  <!-- Password fields -->
+  <label for="password">Password:</label>
+  <input type="password" id="password" name="password" required/><br/><br/>
+
+  <label for="confirmPassword">Confirm Password:</label>
+  <input type="password" id="confirmPassword" name="confirmPassword" required onkeyup="validatePassword();"/><br/><br/>
+
+  <span id="passwordError" style="color:red;"></span><br/>
+
+  <button type="submit">Register</button>
+</form>
+</body>
+</html>
+

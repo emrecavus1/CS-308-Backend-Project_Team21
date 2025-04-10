@@ -1,8 +1,11 @@
 package com.cs308.backend.controllers;
 
+import com.cs308.backend.exception.UserAlreadyExistsException;
 import com.cs308.backend.models.User;
 import com.cs308.backend.repositories.UserRepository;
 import com.cs308.backend.services.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
@@ -19,6 +22,7 @@ public class AuthController {
     private final UserChecks userChecks;
 
 
+    @Autowired
     public AuthController(UserService userService, UserRepository userRepository, UserChecks userChecks) {
         this.userService = userService;
         this.userRepository = userRepository;
@@ -62,9 +66,13 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("errors", errors));
         }
 
-        // If all validations pass, register the user
-        userService.registerUser(user);
-        return ResponseEntity.ok("Registration successful!");
+        try {
+            userService.registerUser(user);
+        } catch (UserAlreadyExistsException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+        }
+
+        return ResponseEntity.ok("Registration successful!. Please check your email to confirm your registration.");
     }
 
 
@@ -77,6 +85,9 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Email not registered");
         }
 
+        if (!userService.isEnabled(existingUser.get().getUserId())) {
+            return ResponseEntity.badRequest().body("Email not verified, please check your email box");
+        }
         // Retrieve the user
         User foundUser = existingUser.get();
 
@@ -84,6 +95,7 @@ public class AuthController {
         if (!foundUser.getPassword().equals(user.getPassword())) {
             return ResponseEntity.badRequest().body("Incorrect password");
         }
+
 
         return ResponseEntity.ok("Login successful!");
     }
