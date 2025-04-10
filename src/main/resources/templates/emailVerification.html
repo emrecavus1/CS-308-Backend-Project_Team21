@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Email Verification</title>
+</head>
+<body>
+<h2>Ship Shack Email Verification</h2>
+<p>Hi <span th:text="${fullName}">User</span>,</p>
+<p>Thank you for registering. Please click the link below to verify your email address:</p>
+<p>
+  <a th:href="${verificationURL}" target="_blank">Verify Email</a>
+</p>
+<p>This link expires on <span th:text="${#temporals.format(expirationTime, 'MMM dd, yyyy hh:mm a')}">expiration date</span>.</p>
+<p>Best regards,</p>
+<p>Ship Shack Team</p>
+</body>
+</html>
