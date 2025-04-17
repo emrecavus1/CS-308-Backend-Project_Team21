@@ -14,13 +14,16 @@ public class OrderHistoryService {
     private final OrderHistoryRepository orderHistoryRepository;
     private final CartRepository cartRepository;
     private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
 
     public OrderHistoryService(OrderHistoryRepository orderHistoryRepository,
                                CartRepository cartRepository,
-                               OrderRepository orderRepository) {
+                               OrderRepository orderRepository,
+                               ProductRepository productRepository) {
         this.orderHistoryRepository = orderHistoryRepository;
         this.cartRepository   = cartRepository;
         this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
     }
 
     /**
@@ -76,5 +79,25 @@ public class OrderHistoryService {
                 .map(Order::getOrderId)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ids);
+    }
+
+    public ResponseEntity<List<Product>> getProductsFromPreviousOrders(String userId) {
+        // 1) grab every Order with shipped=true
+        List<Order> delivered = orderRepository.findByUserIdAndShippedTrue(userId);
+
+        // 2) flatten all their productIds into one big list (and dedupe)
+        List<String> allIds = delivered.stream()
+                .flatMap(o -> o.getProductIds().stream())
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 3) if nothing found, 404
+        if (allIds.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // 4) load the Products and return
+        List<Product> prods = productRepository.findAllById(allIds);
+        return ResponseEntity.ok(prods);
     }
 }
