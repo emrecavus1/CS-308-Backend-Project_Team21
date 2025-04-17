@@ -13,12 +13,14 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final OrderHistoryRepository orderHistoryRepository;
 
-    public OrderService(OrderRepository orderRepository, CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository) {
+    public OrderService(OrderRepository orderRepository, CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository, OrderHistoryRepository orderHistoryRepository) {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
+        this.orderHistoryRepository = orderHistoryRepository;
     }
 
 
@@ -77,6 +79,45 @@ public class OrderService {
         orderRepository.save(order);
         return ResponseEntity.ok("Order marked as shipped.");
     }
+
+
+    public String createOrderFromCart(String userId) {
+        // 1) load & validate cart
+        Cart cart = cartRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalStateException("Cart not found"));
+        if (cart.getProductIds().isEmpty())
+            throw new IllegalStateException("Cart is empty");
+
+        // 2) create & save the Order
+        Order o = new Order();
+        o.setOrderId(UUID.randomUUID().toString());
+        o.setCartId(cart.getCartId());
+        o.setUserId(userId);
+        o.setStatus("Pending");
+        o.setPaid(false);
+        o.setShipped(false);
+        orderRepository.save(o);
+
+        // 3) record it in history
+        OrderHistory history = orderHistoryRepository
+                .findByUserId(userId)
+                .orElseGet(() -> {
+                    OrderHistory h = new OrderHistory();
+                    h.setOrderHistoryId(UUID.randomUUID().toString());
+                    h.setUserId(userId);
+                    h.setOrderIds(new ArrayList<>());
+                    return h;
+                });
+        history.getOrderIds().add(o.getOrderId());
+        orderHistoryRepository.save(history);
+
+        // 4) clear the cart
+        cart.setProductIds(new ArrayList<>());
+        cartRepository.save(cart);
+
+        return o.getOrderId();
+    }
+
 
 
 }
