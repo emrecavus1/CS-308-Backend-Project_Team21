@@ -5,7 +5,7 @@ import org.springframework.data.annotation.Id;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.List;
+import java.util.*;
 
 import com.cs308.backend.models.*;
 @Data
@@ -19,7 +19,11 @@ public class Order {
     private String userId;
     private String status;
     private String paymentId;
-    private List<String> productIds;
+    private List<String> productIds = new ArrayList<>();
+    private List<Integer> quantities = new ArrayList<>();
     private boolean paid;
     private boolean shipped;
+    private String cardNumber;
+    private String expiryDate;
+    private String cvv;
 }

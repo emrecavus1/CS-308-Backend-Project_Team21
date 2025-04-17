@@ -2,6 +2,7 @@ package com.cs308.backend.services;
 
 import com.cs308.backend.models.*;
 import com.cs308.backend.repositories.*;
+import com.cs308.backend.services.*;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -14,13 +15,15 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
+    private final InvoiceService invoiceService;
 
-    public PaymentService(OrderRepository orderRepository, CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository, PaymentRepository paymentRepository) {
+    public PaymentService(OrderRepository orderRepository, CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository, PaymentRepository paymentRepository, InvoiceService invoiceService) {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
         this.paymentRepository = paymentRepository;
+        this.invoiceService = invoiceService;
     }
 
     private boolean isCardExpired(String expiryDate) {
@@ -105,9 +108,18 @@ public class PaymentService {
         order.setPaid(true);
         order.setStatus("Paid");
         order.setPaymentId(payment.getPaymentId());
+        order.setCardNumber(cardNumber);
+        order.setExpiryDate(expiryDate);
+        order.setCvv(cvv);
         orderRepository.save(order);
 
-        return ResponseEntity.ok("Payment processed successfully.");
+        try {
+            invoiceService.emailPdfInvoice(orderId);
+        } catch(Exception e) {
+            // wrap in a runtime exception, or handle/log however you like:
+            throw new IllegalStateException("Failed to send invoice", e);
+        }
+        return ResponseEntity.ok("Payment processed & invoice emailed!");
     }
 
     public Optional<Payment> getPaymentByOrderId(String orderId) {
