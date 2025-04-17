@@ -79,9 +79,9 @@ public class MainController {
     }
 
     @PostMapping("/postReview")
-    public ResponseEntity<Review> postReview(@RequestBody Review review) {
-        Review savedReview = reviewService.postReview(review);
-        return ResponseEntity.ok(savedReview);
+    public ResponseEntity<Review> postReview(@RequestBody Review req) {
+        Review saved = reviewService.postReview(req);
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/updatePrice/{productId}/{newPrice}")

@@ -80,11 +80,14 @@ public class OrderController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Get this user’s entire order‑history (list of order IDs).
-     */
-    @GetMapping("/history/{userId}")
-    public ResponseEntity<List<String>> getOrderHistory(@PathVariable String userId) {
-        return orderHistoryService.getHistoryByUser(userId);
+
+    @GetMapping("/viewPreviousOrders/{userId}")
+    public ResponseEntity<List<String>> viewPreviousOrders(@PathVariable String userId) {
+        return orderHistoryService.viewPreviousOrdersByUser(userId);
+    }
+
+    @GetMapping("/viewActiveOrders/{userId}")
+    public ResponseEntity<List<String>> viewActiveOrders(@PathVariable String userId) {
+        return orderHistoryService.viewActiveOrdersByUser(userId);
     }
 }

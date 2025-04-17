@@ -19,4 +19,5 @@ public class Review {
     private boolean isVerified;
     private String userId;
     private String productId;
+
 }

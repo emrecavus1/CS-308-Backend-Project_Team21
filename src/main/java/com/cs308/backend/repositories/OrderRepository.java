@@ -26,4 +26,8 @@ public interface OrderRepository extends MongoRepository<Order, String>
 
     // Get orders by status string (optional if you're using it like "pending", "completed", etc.)
     List<Order> findByStatus(String status);
+
+    List<Order> findByUserIdAndShippedTrue(String userId);
+
+    List<Order> findByUserIdAndShippedFalse(String userId);
 }
