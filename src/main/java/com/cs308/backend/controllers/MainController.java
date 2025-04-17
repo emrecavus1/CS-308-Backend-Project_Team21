@@ -1,11 +1,13 @@
 package com.cs308.backend.controllers;
 
 import com.cs308.backend.models.*;
+import com.cs308.backend.models.CartItem;
 import com.cs308.backend.repositories.*;
 import com.cs308.backend.services.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/main")
@@ -105,10 +107,11 @@ public class MainController {
     }
 
 
-    @GetMapping("/cart/products")
-    public ResponseEntity<List<Product>> getCartProducts(@RequestParam String userId) {
-        return cartService.getProductsInCart(userId);
+    @GetMapping("/cart/items")
+    public ResponseEntity<List<CartItem>> getCartItems(@RequestParam String userId) {
+        return cartService.getCartItems(userId);
     }
+
 
     @GetMapping("/search")
     public ResponseEntity<List<Product>> searchProducts(@RequestParam String query) {

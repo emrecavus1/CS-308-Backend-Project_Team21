@@ -5,16 +5,19 @@ import org.springframework.data.annotation.Id;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.List;
-
+import java.util.*;
 import com.cs308.backend.models.*;
+import com.cs308.backend.models.CartItem;
+
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Document(collection = "cart")
 public class Cart {
     @Id
     private String cartId;
     private String userId;
-    private List<String> productIds;
+
+    /** Now each entry has both productId and quantity */
+    private List<CartItem> items = new ArrayList<>();
 }
