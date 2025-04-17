@@ -1,11 +1,7 @@
 package com.cs308.backend.controllers;
 
-import com.cs308.backend.models.Order;
-import com.cs308.backend.services.CartService;
-import com.cs308.backend.services.OrderHistoryService;
-import com.cs308.backend.services.OrderService;
-import com.cs308.backend.services.PaymentService;
-import com.cs308.backend.services.UserService;
+import com.cs308.backend.models.*;
+import com.cs308.backend.services.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -89,5 +85,10 @@ public class OrderController {
     @GetMapping("/viewActiveOrders/{userId}")
     public ResponseEntity<List<String>> viewActiveOrders(@PathVariable String userId) {
         return orderHistoryService.viewActiveOrdersByUser(userId);
+    }
+
+    @GetMapping("/previous-products/{userId}")
+    public ResponseEntity<List<Product>> previousProducts(@PathVariable String userId) {
+        return orderHistoryService.getProductsFromPreviousOrders(userId);
     }
 }
