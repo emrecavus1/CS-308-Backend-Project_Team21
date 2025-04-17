@@ -32,29 +32,28 @@ public class OrderController {
         this.orderHistoryService   = orderHistoryService;
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<String> createOrder(@RequestParam String userId) {
-        return orderService.createOrder(userId);
-    }
 
-    @PutMapping("/payment/{orderId}")
-    public ResponseEntity<String> markOrderAsPaid(
-            @PathVariable String orderId,
+    @PutMapping("/payment")
+    public ResponseEntity<String> processPayment(
             @RequestParam String userId,
             @RequestParam String cardNumber,
             @RequestParam String expiryDate,
             @RequestParam String cvv) {
 
-        // process payment and mark order paid
-        ResponseEntity<String> result =
-                paymentService.processPayment(userId, orderId, cardNumber, expiryDate, cvv);
-
-        // if payment was successful, record it in history & clear cart
-        if (result.getStatusCode().is2xxSuccessful()) {
-            orderHistoryService.recordOrderAndClearCart(userId, orderId);
+        // 1. Validate bank info, charge card, etc.
+        ResponseEntity<String> validation = paymentService.getBankInformation(userId, cardNumber, expiryDate, cvv);
+        if (!validation.getStatusCode().is2xxSuccessful()) {
+            return validation;
         }
-        return result;
+
+        // 2. Create the Order now that we know payment can proceed
+        String newOrderId = orderService.createOrderFromCart(userId);
+        //    ^— you’d write a helper method that both checks the cart and persists the Order
+
+        // 3. Process payment & link to that order
+        return paymentService.processPayment(userId, newOrderId, cardNumber, expiryDate, cvv);
     }
+
 
     @PutMapping("/markShipped/{orderId}")
     public ResponseEntity<String> markOrderAsShipped(@PathVariable String orderId) {
