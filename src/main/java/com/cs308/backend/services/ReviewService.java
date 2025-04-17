@@ -11,10 +11,17 @@ import java.util.*;
 public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
+    private final CartRepository cartRepository;
 
-    public ReviewService(ReviewRepository reviewRepository, ProductRepository productRepository) {
-        this.reviewRepository = reviewRepository;
+    public ReviewService(ReviewRepository reviewRepository,
+                         ProductRepository productRepository,
+                         OrderRepository orderRepository,
+                         CartRepository cartRepository) {
+        this.reviewRepository  = reviewRepository;
         this.productRepository = productRepository;
+        this.orderRepository   = orderRepository;
+        this.cartRepository    = cartRepository;
     }
 
     public List<Review> findByUserId(String userId) {
@@ -62,6 +69,7 @@ public class ReviewService {
 
         return savedReview;
     }
+
 
 
 }
