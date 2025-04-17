@@ -72,7 +72,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
         }
 
-        return ResponseEntity.ok("Registration successful!. Please check your email to confirm your registration.");
+        return ResponseEntity.ok("Registration successful!");
     }
 
 
@@ -85,9 +85,9 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Email not registered");
         }
 
-        if (!userService.isEnabled(existingUser.get().getUserId())) {
+        /*if (!userService.isEnabled(existingUser.get().getUserId())) {
             return ResponseEntity.badRequest().body("Email not verified, please check your email box");
-        }
+        } */
         // Retrieve the user
         User foundUser = existingUser.get();
 

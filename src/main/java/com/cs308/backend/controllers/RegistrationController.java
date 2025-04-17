@@ -1,3 +1,4 @@
+/*
 package com.cs308.backend.controllers;
 
 import com.cs308.backend.services.UserService;
@@ -39,4 +40,4 @@ public class RegistrationController {
             return "redirect:/login?message=An+unexpected+error+occurred";
         }
     }
-}
+} */
