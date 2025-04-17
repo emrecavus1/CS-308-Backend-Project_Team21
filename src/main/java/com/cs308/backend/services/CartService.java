@@ -1,6 +1,7 @@
 package com.cs308.backend.services;
 
 import com.cs308.backend.models.*;
+import com.cs308.backend.models.CartItem;
 import com.cs308.backend.repositories.*;
 
 import org.springframework.http.ResponseEntity;
@@ -10,79 +11,66 @@ import java.util.*;
 @Service
 public class CartService {
     private final CartRepository cartRepository;
-    private final UserRepository userRepository;
     private final ProductRepository productRepository;
 
-    public CartService(CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository) {
+    public CartService(CartRepository cartRepository, ProductRepository productRepository) {
         this.cartRepository = cartRepository;
-        this.userRepository = userRepository;
         this.productRepository = productRepository;
     }
 
     public ResponseEntity<String> addToCart(String userId, String productId) {
-        Optional<Product> productOptional = productRepository.findById(productId);
-
-        if (!productOptional.isPresent()) {
-            return ResponseEntity.badRequest().body("Product not found!");
-        }
-
-        Product product = productOptional.get();
-        if (product.getStockCount() < 1) {
+        // 1) check product exists & in stock
+        Product p = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found!"));
+        if (p.getStockCount() < 1) {
             return ResponseEntity.badRequest().body("No available stocks!");
         }
 
-        // Reduce stock count
-        product.setStockCount(product.getStockCount() - 1);
-        productRepository.save(product);
+        // reduce stock & save
+        p.setStockCount(p.getStockCount() - 1);
+        productRepository.save(p);
 
-        // Retrieve user's cart
-        Optional<Cart> cartOptional = cartRepository.findByUserId(userId);
+        // 2) fetch-or-create cart
+        Cart cart = cartRepository.findByUserId(userId)
+                .orElseGet(() -> {
+                    Cart c = new Cart();
+                    c.setUserId(userId);
+                    return c;
+                });
 
-        Cart cart;
-        if (cartOptional.isPresent()) {
-            cart = cartOptional.get();
+        // 3) find an existing CartItem for this product
+        List<CartItem> items = cart.getItems();
+        CartItem match = items.stream()
+                .filter(ci -> ci.getProductId().equals(productId))
+                .findFirst()
+                .orElse(null);
+
+        if (match != null) {
+            // bump quantity
+            match.setQuantity(match.getQuantity() + 1);
         } else {
-            cart = new Cart();
-            cart.setUserId(userId);
-            cart.setProductIds(new ArrayList<>());
+            // first time: add new line
+            items.add(new CartItem(productId, 1));
         }
 
-        // Add product to the cart
-        cart.getProductIds().add(productId);
+        cart.setItems(items);
         cartRepository.save(cart);
-
         return ResponseEntity.ok("Product added to cart successfully!");
     }
 
     public ResponseEntity<String> deleteProductsInCart(String userId) {
-        Optional<Cart> cartOptional = cartRepository.findByUserId(userId);
-
-        if (!cartOptional.isPresent()) {
-            return ResponseEntity.badRequest().body("Cart not found for this user!");
-        }
-
-        Cart cart = cartOptional.get();
-
-        // Remove all products from cart
-        cart.getProductIds().clear();
+        Cart cart = cartRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Cart not found!"));
+        cart.getItems().clear();
         cartRepository.save(cart);
-
-        return ResponseEntity.ok("Cart has been cleared after successful order!");
+        return ResponseEntity.ok("Cart cleared.");
     }
 
-
-    public ResponseEntity<List<Product>> getProductsInCart(String userId) {
-        Optional<Cart> cartOptional = cartRepository.findByUserId(userId);
-
-        if (!cartOptional.isPresent()) {
-            return ResponseEntity.badRequest().body(null);
-        }
-
-        Cart cart = cartOptional.get();
-        List<String> productIds = cart.getProductIds();
-
-        List<Product> productsInCart = productRepository.findAllById(productIds);
-
-        return ResponseEntity.ok(productsInCart);
+    // in CartService.java
+    public ResponseEntity<List<CartItem>> getCartItems(String userId) {
+        Cart cart = cartRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Cart not found!"));
+        return ResponseEntity.ok(cart.getItems());
     }
+
 }

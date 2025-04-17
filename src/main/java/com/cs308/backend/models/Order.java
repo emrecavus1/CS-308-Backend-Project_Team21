@@ -19,6 +19,7 @@ public class Order {
     private String userId;
     private String status;
     private String paymentId;
+    private List<String> productIds;
     private boolean paid;
     private boolean shipped;
 }

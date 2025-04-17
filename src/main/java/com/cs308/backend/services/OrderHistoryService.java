@@ -29,16 +29,15 @@ public class OrderHistoryService {
      * 2) Add the orderId to their order_history document
      */
     public void recordOrderAndClearCart(String userId, String orderId) {
-        // 1) clear the cart
+        // clear all items
         cartRepository.findByUserId(userId)
                 .ifPresent(cart -> {
-                    cart.setProductIds(Collections.emptyList());
+                    cart.getItems().clear();
                     cartRepository.save(cart);
                 });
 
-        // 2) append to history
-        OrderHistory history = orderHistoryRepository
-                .findByUserId(userId)
+        // append to history
+        OrderHistory history = orderHistoryRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     OrderHistory oh = new OrderHistory();
                     oh.setOrderHistoryId(UUID.randomUUID().toString());
@@ -62,18 +61,20 @@ public class OrderHistoryService {
     }
 
     public ResponseEntity<List<String>> viewPreviousOrdersByUser(String userId) {
+        // find all orders shipped=true
         List<Order> shippedOrders = orderRepository.findByUserIdAndShippedTrue(userId);
-        List<String> shippedOrderIds = shippedOrders.stream()
+        List<String> ids = shippedOrders.stream()
                 .map(Order::getOrderId)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(shippedOrderIds);
+        return ResponseEntity.ok(ids);
     }
 
     public ResponseEntity<List<String>> viewActiveOrdersByUser(String userId) {
-        List<Order> activeOrders = orderRepository.findByUserIdAndShippedFalse(userId);
-        List<String> activeOrderIds = activeOrders.stream()
+        // find all orders shipped=true
+        List<Order> shippedOrders = orderRepository.findByUserIdAndShippedFalse(userId);
+        List<String> ids = shippedOrders.stream()
                 .map(Order::getOrderId)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(activeOrderIds);
+        return ResponseEntity.ok(ids);
     }
 }
