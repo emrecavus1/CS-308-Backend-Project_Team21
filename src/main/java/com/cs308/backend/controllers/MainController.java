@@ -119,6 +119,14 @@ public class MainController {
         return ResponseEntity.ok(products);
     }
 
+    @GetMapping("/sortProductsByPrice")
+    public ResponseEntity<List<Product>> sortProductsByPrice(@RequestParam(defaultValue = "asc") String order) {
+        List<Product> sortedProducts = productService.sortProductsByPrice();
+        return ResponseEntity.ok(sortedProducts);
+    }
+
+
+
 
 
 }

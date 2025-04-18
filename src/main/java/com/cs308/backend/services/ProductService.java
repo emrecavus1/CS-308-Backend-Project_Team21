@@ -164,5 +164,11 @@ public class ProductService {
                 query, query);
     }
 
+    public List<Product> sortProductsByPrice() {
+        List<Product> products = getAllProducts();
+        products.sort(Comparator.comparing(Product::getPrice));
+        return products;
+    }
+
 
 }
