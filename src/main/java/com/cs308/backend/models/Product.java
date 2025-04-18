@@ -17,6 +17,9 @@ import com.cs308.backend.models.*;
 public class Product {
     @Id
     private String productId;
+
+    private String serialNumber;
+
     private int stockCount;
     private String imageUrl;
     private double price;
@@ -24,4 +27,6 @@ public class Product {
     private List<String> reviewIds;
     private String productInfo;
     private String categoryId;
+    private String warrantyStatus;
+    private String distributorInfo;
 }
