@@ -54,9 +54,13 @@ public class MainController {
                 product, // Pass the full Product object
                 product.getProductName(),
                 product.getProductInfo(),
+
                 categoryName, // Pass categoryName instead of categoryId
                 product.getStockCount(),
-                product.getImageUrl()
+                product.getImageUrl(),
+                product.getSerialNumber(),
+                product.getWarrantyStatus(),
+                product.getDistributorInfo()
         );
 
         return response; // Return the response message from ProductService

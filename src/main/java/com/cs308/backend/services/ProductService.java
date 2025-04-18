@@ -17,7 +17,7 @@ public class ProductService {
         this.categoryRepository = categoryRepository;
     }
 
-    public ResponseEntity<String> addProduct(Product product, String name, String info, String categoryName, int stock, String imageUrl) {
+    public ResponseEntity<String> addProduct(Product product, String name, String info, String categoryName, int stock, String imageUrl, String serialNumber, String warrantyStatus, String distributorInfo) {
         if (productRepository.findByProductNameIgnoreCase(name) != null) {
             return ResponseEntity.badRequest().body("Product with this name already exists!");
         }
@@ -51,8 +51,23 @@ public class ProductService {
         {
             return ResponseEntity.badRequest().body("Image URL cannot be empty!");
         }
-
         product.setImageUrl(imageUrl);
+
+        if (serialNumber == null || serialNumber.isEmpty()) {
+            return ResponseEntity.badRequest().body("Serial number cannot be empty!");
+        }
+        product.setSerialNumber(serialNumber);
+
+        if (warrantyStatus == null || warrantyStatus.isEmpty()) {
+            return ResponseEntity.badRequest().body("Warranty status cannot be empty!");
+        }
+        product.setWarrantyStatus(warrantyStatus);
+
+        if (distributorInfo == null || distributorInfo.isEmpty()) {
+            return ResponseEntity.badRequest().body("Distributor info cannot be empty!");
+        }
+        product.setDistributorInfo(distributorInfo);
+
         Product savedProduct = productRepository.save(product);
         category.getProductIds().add(savedProduct.getProductId()); // Add the newly created product's ID
         categoryRepository.save(category);  // Save the updated category
@@ -151,6 +166,18 @@ public class ProductService {
             // e.g., if you allow imageUrl changes:
             if (updates.containsKey("imageUrl")) {
                 product.setImageUrl((String) updates.get("imageUrl"));
+            }
+
+            if (updates.containsKey("serialNumber")) {
+                product.setSerialNumber((String) updates.get("serialNumber"));
+            }
+
+            if (updates.containsKey("warrantyStatus")) {
+                product.setWarrantyStatus((String) updates.get("warrantyStatus"));
+            }
+
+            if (updates.containsKey("distributorInfo")) {
+                product.setDistributorInfo((String) updates.get("distributorInfo"));
             }
 
             return productRepository.save(product);
