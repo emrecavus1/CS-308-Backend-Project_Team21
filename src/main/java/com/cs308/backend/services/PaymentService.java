@@ -106,7 +106,7 @@ public class PaymentService {
 
         // Update order
         order.setPaid(true);
-        order.setStatus("Paid");
+        order.setStatus("Processing");
         order.setPaymentId(payment.getPaymentId());
         order.setCardNumber(cardNumber);
         order.setExpiryDate(expiryDate);

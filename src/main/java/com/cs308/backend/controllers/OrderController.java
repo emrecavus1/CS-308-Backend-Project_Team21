@@ -56,6 +56,11 @@ public class OrderController {
         return orderService.markAsShipped(orderId);
     }
 
+    @PutMapping("/markInTransit/{orderId}")
+    public ResponseEntity<String> markOrderAsInTransit(@PathVariable String orderId) {
+        return orderService.markAsInTransit(orderId);
+    }
+
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<Order>> getOrdersByUser(@PathVariable String userId) {
         List<Order> orders = orderService.getOrdersByUser(userId);
