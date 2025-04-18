@@ -51,9 +51,22 @@ public class OrderService {
 
         Order order = optionalOrder.get();
         order.setShipped(true);
-        order.setStatus("Shipped");
+        order.setStatus("Delivered");
         orderRepository.save(order);
         return ResponseEntity.ok("Order marked as shipped.");
+    }
+
+    public ResponseEntity<String> markAsInTransit(String orderId) {
+        Optional<Order> optionalOrder = orderRepository.findById(orderId);
+
+        if (!optionalOrder.isPresent()) {
+            return ResponseEntity.badRequest().body("Order not found.");
+        }
+
+        Order order = optionalOrder.get();
+        order.setStatus("In-Transit");
+        orderRepository.save(order);
+        return ResponseEntity.ok("Order marked as in-transit.");
     }
 
 
@@ -81,7 +94,7 @@ public class OrderService {
         o.setOrderId(UUID.randomUUID().toString());
         o.setCartId(cart.getCartId());
         o.setUserId(userId);
-        o.setStatus("Pending");
+        o.setStatus("Processing");
         o.setPaid(false);
         o.setShipped(false);
 
