@@ -29,7 +29,7 @@ public class OrderController {
     }
 
 
-    @PutMapping("/payment")
+    /*@PutMapping("/payment")
     public ResponseEntity<String> processPayment(
             @RequestParam String userId,
             @RequestParam String cardNumber,
@@ -48,6 +48,34 @@ public class OrderController {
 
         // 3. Process payment & link to that order
         return paymentService.processPayment(userId, newOrderId, cardNumber, expiryDate, cvv);
+    }*/
+
+    @PutMapping("/payment")
+    public ResponseEntity<String> processPayment(
+            @RequestParam String userId,
+            @RequestParam String cardNumber,
+            @RequestParam String expiryDate,
+            @RequestParam String cvv) {
+
+        // 1. Validate bank info, charge card, etc.
+        ResponseEntity<String> validation = paymentService.getBankInformation(userId, cardNumber, expiryDate, cvv);
+        if (!validation.getStatusCode().is2xxSuccessful()) {
+            return validation;
+        }
+
+        // 2. Create the Order now that we know payment can proceed
+        String newOrderId = orderService.createOrderFromCart(userId);
+        //    ^— you'd write a helper method that both checks the cart and persists the Order
+
+        // 3. Process payment & link to that order
+        ResponseEntity<String> paymentResponse = paymentService.processPayment(userId, newOrderId, cardNumber, expiryDate, cvv);
+
+        // 4. If payment was successful, record the order in history and clear the cart
+        if (paymentResponse.getStatusCode().is2xxSuccessful()) {
+            orderHistoryService.recordOrderAndClearCart(userId, newOrderId);
+        }
+
+        return paymentResponse;
     }
 
 
@@ -96,4 +124,29 @@ public class OrderController {
     public ResponseEntity<List<Product>> previousProducts(@PathVariable String userId) {
         return orderHistoryService.getProductsFromPreviousOrders(userId);
     }
+
+    @DeleteMapping("/cancel/{orderId}")
+    public ResponseEntity<String> cancelOrder(
+            @PathVariable String orderId,
+            @RequestParam String userId) {
+
+        // 1. Cancel the order
+        ResponseEntity<String> cancelResponse = orderService.cancelOrder(orderId);
+
+        if (!cancelResponse.getStatusCode().is2xxSuccessful()) {
+            return cancelResponse;
+        }
+
+        // 2. Remove from order history
+        ResponseEntity<String> historyResponse = orderHistoryService.removeOrderFromHistory(userId, orderId);
+
+        if (!historyResponse.getStatusCode().is2xxSuccessful()) {
+            // Order was cancelled but couldn't be removed from history
+            return ResponseEntity.ok("Order cancelled but could not be removed from history: "
+                    + historyResponse.getBody());
+        }
+
+        return ResponseEntity.ok("Order cancelled and removed from history successfully.");
+    }
+
 }
