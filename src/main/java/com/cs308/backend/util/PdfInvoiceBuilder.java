@@ -61,7 +61,7 @@ public class PdfInvoiceBuilder {
                 y -= 15;
                 cs.beginText();
                 cs.newLineAtOffset(itemX + 20, y);
-                cs.showText("Card #: " + cardNumber);
+                cs.showText("Card Number: " + cardNumber);
                 cs.endText();
 
                 y -= 15;
@@ -77,11 +77,11 @@ public class PdfInvoiceBuilder {
                 cs.newLineAtOffset(itemX, y);
                 cs.showText("Item");
                 cs.newLineAtOffset(qtyX - itemX, 0);
-                cs.showText("Qty");
+                cs.showText("Quantity");
                 cs.newLineAtOffset(unitX - qtyX, 0);
-                cs.showText("Unit");
+                cs.showText("Unit Price");
                 cs.newLineAtOffset(totalX - unitX, 0);
-                cs.showText("Total");
+                cs.showText("Total Price");
                 cs.endText();
 
                 // — Line items —
