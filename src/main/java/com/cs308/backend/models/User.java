@@ -8,8 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 
 @Data
@@ -21,7 +20,6 @@ public class User extends Auditable {
     private String userId;
     @Indexed(unique = true) // Ensure email uniqueness if desired
     private String email;
-
     private String password;
     private String name;
     private String surname;
@@ -29,6 +27,7 @@ public class User extends Auditable {
     private String city;
     private String phoneNumber;
     private String specificAddress;
+    private List<String> wishList;
     private boolean accountVerified;
     private boolean loginDisabled;
 
