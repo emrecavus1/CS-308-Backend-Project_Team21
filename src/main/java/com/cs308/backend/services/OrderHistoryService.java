@@ -100,4 +100,28 @@ public class OrderHistoryService {
         List<Product> prods = productRepository.findAllById(allIds);
         return ResponseEntity.ok(prods);
     }
+
+    public ResponseEntity<String> removeOrderFromHistory(String userId, String orderId) {
+        // Find the user's order history
+        Optional<OrderHistory> optionalHistory = orderHistoryRepository.findByUserId(userId);
+
+        if (!optionalHistory.isPresent()) {
+            return ResponseEntity.badRequest().body("Order history not found for this user.");
+        }
+
+        OrderHistory history = optionalHistory.get();
+
+        // Remove the order ID from the history
+        boolean removed = history.getOrderIds().remove(orderId);
+
+        if (!removed) {
+            return ResponseEntity.badRequest().body("Order not found in user's history.");
+        }
+
+        // Save the updated history
+        orderHistoryRepository.save(history);
+
+        return ResponseEntity.ok("Order removed from history.");
+    }
+
 }

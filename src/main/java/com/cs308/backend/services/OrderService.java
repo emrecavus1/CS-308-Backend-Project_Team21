@@ -111,6 +111,27 @@ public class OrderService {
         return o.getOrderId();
     }
 
+    public ResponseEntity<String> cancelOrder(String orderId) {
+        Optional<Order> optionalOrder = orderRepository.findById(orderId);
+
+        if (!optionalOrder.isPresent()) {
+            return ResponseEntity.badRequest().body("Order not found.");
+        }
+
+        Order order = optionalOrder.get();
+
+        // Check if the order can be cancelled (must be in "Processing" status)
+        if (!order.getStatus().equals("Processing")) {
+            return ResponseEntity.badRequest().body("Order can only be cancelled if it is in 'Processing' status. Current status: " + order.getStatus());
+        }
+
+        // Update order status
+        order.setStatus("Cancelled");
+        orderRepository.save(order);
+
+        return ResponseEntity.ok("Order cancelled successfully.");
+    }
+
 
 
 
