@@ -125,6 +125,18 @@ public class OrderService {
             return ResponseEntity.badRequest().body("Order can only be cancelled if it is in 'Processing' status. Current status: " + order.getStatus());
         }
 
+        List<String> ids   = order.getProductIds();
+        List<Integer> qtys = order.getQuantities();
+        for (int i = 0; i < ids.size(); i++) {
+            String productId = ids.get(i);
+            int    qty       = qtys.get(i);
+
+            productRepository.findById(productId).ifPresent(product -> {
+                product.setStockCount(product.getStockCount() + qty);
+                productRepository.save(product);
+            });
+        }
+
         // Update order status
         order.setStatus("Cancelled");
         orderRepository.save(order);
