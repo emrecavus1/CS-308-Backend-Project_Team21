@@ -7,20 +7,22 @@ import com.cs308.backend.mailing.AccountVerificationEmailContext;
 import com.cs308.backend.mailing.EmailService;
 import com.cs308.backend.models.SecureToken;
 import com.cs308.backend.models.User;
-import com.cs308.backend.repositories.UserRepository;
+import com.cs308.backend.models.Product;
+import com.cs308.backend.repositories.*;
 import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
+import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+
 
 @Service
 public class UserService {
     private final UserRepository userRepository;
+    private final ProductRepository productRepository;
     private final EmailService emailService;
     private final SecureTokenService secureTokenService;
     private final Environment env;
@@ -32,11 +34,13 @@ public class UserService {
     public UserService(UserRepository userRepository,
                        EmailService emailService,
                        SecureTokenService secureTokenService,
-                       Environment env) {
+                       Environment env,
+                       ProductRepository productRepository ) {
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.secureTokenService = secureTokenService;
         this.env = env;
+        this.productRepository = productRepository;
     }
 
     // Check if an email is already registered
@@ -118,6 +122,51 @@ public class UserService {
             return false; // User not found, therefore "not enabled"
         }
         return user.isAccountVerified() && !user.isLoginDisabled();
+    }
+
+    public ResponseEntity<String> addToWishlist(String userId, String productId) {
+        Optional<User> u = userRepository.findById(userId);
+        if (u.isEmpty()) {
+            return ResponseEntity.badRequest().body("User not found.");
+        }
+        User user = u.get();
+        if (user.getWishList() == null) {
+            user.setWishList(new ArrayList<>());
+        }
+        if (user.getWishList().contains(productId)) {
+            return ResponseEntity.badRequest().body("Product already in wishlist.");
+        }
+        user.getWishList().add(productId);
+        userRepository.save(user);
+        return ResponseEntity.ok("Product added to wishlist.");
+    }
+
+    public ResponseEntity<String> removeFromWishlist(String userId, String productId) {
+        Optional<User> u = userRepository.findById(userId);
+        if (u.isEmpty()) {
+            return ResponseEntity.badRequest().body("User not found.");
+        }
+        User user = u.get();
+        if (user.getWishList() == null || !user.getWishList().remove(productId)) {
+            return ResponseEntity.badRequest().body("Product not in wishlist.");
+        }
+        userRepository.save(user);
+        return ResponseEntity.ok("Product removed from wishlist.");
+    }
+
+    public ResponseEntity<List<Product>> getWishlist(String userId) {
+        Optional<User> u = userRepository.findById(userId);
+        if (u.isEmpty()) {
+            // you could also return 404 here if you prefer
+            return ResponseEntity.badRequest().body(Collections.emptyList());
+        }
+        User user = u.get();
+        List<String> ids = user.getWishList();
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        List<Product> prods = productRepository.findAllById(ids);
+        return ResponseEntity.ok(prods);
     }
 
 }

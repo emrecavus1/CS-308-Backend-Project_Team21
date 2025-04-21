@@ -129,6 +129,28 @@ public class MainController {
         return ResponseEntity.ok(sortedProducts);
     }
 
+    /** Add a product to this user’s wishlist */
+    @PostMapping("/{userId}/wishlist/{productId}")
+    public ResponseEntity<String> addToWishlist(
+            @PathVariable String userId,
+            @PathVariable String productId) {
+        return userService.addToWishlist(userId, productId);
+    }
+
+    /** Remove a product from this user’s wishlist */
+    @DeleteMapping("/{userId}/wishlist/{productId}")
+    public ResponseEntity<String> removeFromWishlist(
+            @PathVariable String userId,
+            @PathVariable String productId) {
+        return userService.removeFromWishlist(userId, productId);
+    }
+
+    /** Get all products in this user’s wishlist */
+    @GetMapping("/{userId}/wishlist")
+    public ResponseEntity<List<Product>> getWishlist(
+            @PathVariable String userId) {
+        return userService.getWishlist(userId);
+    }
 
 
 
