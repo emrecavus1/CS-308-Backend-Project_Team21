@@ -26,9 +26,7 @@ public class CartService {
             return ResponseEntity.badRequest().body("No available stocks!");
         }
 
-        // reduce stock & save
-        p.setStockCount(p.getStockCount() - 1);
-        productRepository.save(p);
+        // ← **NO longer reduce stock here!**
 
         // 2) fetch-or-create cart
         Cart cart = cartRepository.findByUserId(userId)
@@ -38,7 +36,7 @@ public class CartService {
                     return c;
                 });
 
-        // 3) find an existing CartItem for this product
+        // 3) find an existing CartItem or add a new one
         List<CartItem> items = cart.getItems();
         CartItem match = items.stream()
                 .filter(ci -> ci.getProductId().equals(productId))
@@ -46,10 +44,8 @@ public class CartService {
                 .orElse(null);
 
         if (match != null) {
-            // bump quantity
             match.setQuantity(match.getQuantity() + 1);
         } else {
-            // first time: add new line
             items.add(new CartItem(productId, 1));
         }
 
