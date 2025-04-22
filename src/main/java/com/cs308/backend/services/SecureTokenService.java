@@ -7,4 +7,5 @@ public interface SecureTokenService {
     SecureToken createToken(SecureToken token);
     Optional<SecureToken> getToken(String token);
     void removeToken(String token);
+    SecureToken generateForUser(String userId, int minutesValid);
 }

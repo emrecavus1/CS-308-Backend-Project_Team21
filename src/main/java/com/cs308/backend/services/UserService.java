@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -26,6 +27,7 @@ public class UserService {
     private final EmailService emailService;
     private final SecureTokenService secureTokenService;
     private final Environment env;
+    private final PasswordEncoder passwordEncoder;
 
     // Temporary storage for unverified users
     private final Map<String, User> unverifiedUsers = new HashMap<>();
@@ -35,12 +37,14 @@ public class UserService {
                        EmailService emailService,
                        SecureTokenService secureTokenService,
                        Environment env,
-                       ProductRepository productRepository ) {
+                       ProductRepository productRepository,
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.secureTokenService = secureTokenService;
         this.env = env;
         this.productRepository = productRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // Check if an email is already registered
@@ -49,80 +53,20 @@ public class UserService {
                 unverifiedUsers.values().stream().anyMatch(user -> user.getEmail().equals(email));
     }
 
-    // Register a new user: check if email is taken, save the user, and send a confirmation email.
     public void registerUser(User user) {
         if (isEmailTaken(user.getEmail())) {
             throw new UserAlreadyExistsException("User with email " + user.getEmail() + " already exists");
         }
-        User savedUser = userRepository.save(user);
-        sendRegistrationConfirmationEmail(savedUser);
-    }
-
-    // Sends the registration confirmation email
-    public void sendRegistrationConfirmationEmail(User user) {
-        // Generate a unique token using UUID
-        String token = UUID.randomUUID().toString();
-
-        // Set token expiration to 15 minutes from now
-        LocalDateTime expirationTime = LocalDateTime.now().plusMinutes(15);
-
-        // Create a SecureToken valid for 15 minutes
-        SecureToken secureToken = new SecureToken(token, expirationTime, user);
-        secureTokenService.createToken(secureToken);
-
-        // Create and initialize the email context
-        AccountVerificationEmailContext emailContext = new AccountVerificationEmailContext();
-        emailContext.init(user);   // Sets fullName, subject, to, etc.
-        emailContext.setToken(token);
-        emailContext.setExpirationTime(expirationTime);
-
-        // Retrieve base URL from properties (default to "https://localhost:8080")
-        String baseURL = env.getProperty("site.base.url.https", "https://localhost:8080");
-        emailContext.buildVerificationUrl(baseURL, token);
-
-        // Send the registration email
-        try {
-            emailService.sendMail(emailContext);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Failed to send registration confirmation email", e);
-        }
-    }
-
-
-    public void verifyUser(String token) {
-        if (token == null || token.trim().isEmpty()) {
-            throw new IllegalArgumentException("Token is empty.");
-        }
-        // Retrieve and verify the token using your SecureTokenService.
-        SecureToken secureToken = secureTokenService.getToken(token)
-                .orElseThrow(() -> new UnknownIdentifierException("Token not found."));
-
-        // If needed, check the token's expiration date.
-        if (secureToken.getExpiredAt().isBefore(LocalDateTime.now())) {
-            throw new InvalidTokenException("Token has expired.");
-        }
-
-        // Retrieve the user associated with the token.
-        User user = secureToken.getUser();
-        if (user == null) {
-            throw new UnknownIdentifierException("User not found for token.");
-        }
-
-        // Mark the user's account as verified.
-        user.setAccountVerified(true);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         userRepository.save(user);
-
-        // Optionally, remove the token from the database.
-        // secureTokenService.removeToken(token);
     }
 
-    public boolean isEnabled(String userid) {
-        User user = userRepository.findById(userid).orElse(null);
-        if (user == null) {
-            return false; // User not found, therefore "not enabled"
-        }
-        return user.isAccountVerified() && !user.isLoginDisabled();
+    public User authenticate(String email, String rawPassword) {
+        return userRepository.findByEmail(email)
+                .filter(u -> passwordEncoder.matches(rawPassword, u.getPassword()))
+                .orElse(null);
     }
+
 
     public ResponseEntity<String> addToWishlist(String userId, String productId) {
         Optional<User> u = userRepository.findById(userId);
