@@ -27,9 +27,8 @@ public class User extends Auditable {
     private String city;
     private String phoneNumber;
     private String specificAddress;
+    private String token;
     private List<String> wishList;
-    private boolean accountVerified;
-    private boolean loginDisabled;
 
     // Tokens associated with the user; stored as references to SecureToken documents
     @DBRef
@@ -44,12 +43,6 @@ public class User extends Auditable {
         this.specificAddress = specificAddress;
         this.city = city;
         this.phoneNumber = phoneNumber;
-        this.accountVerified = false;
-    }
-
-    void setLoginDisabled(boolean loginDisabled) {
-        this.loginDisabled = loginDisabled;
-        // Add any additional logic if required
     }
 
 }
