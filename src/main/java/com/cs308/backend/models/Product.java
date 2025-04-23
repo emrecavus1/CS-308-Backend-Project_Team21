@@ -21,7 +21,6 @@ public class Product {
     private String serialNumber;
 
     private int stockCount;
-    private String imageUrl;
     private double price;
     private String productName;
     private List<String> reviewIds;

@@ -7,69 +7,64 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+// in com.cs308.backend.services.ReviewService.java
+
 @Service
 public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ProductRepository productRepository;
-    private final OrderRepository orderRepository;
-    private final CartRepository cartRepository;
 
     public ReviewService(ReviewRepository reviewRepository,
-                         ProductRepository productRepository,
-                         OrderRepository orderRepository,
-                         CartRepository cartRepository) {
-        this.reviewRepository  = reviewRepository;
+                         ProductRepository productRepository) {
+        this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
-        this.orderRepository   = orderRepository;
-        this.cartRepository    = cartRepository;
-    }
-
-    public List<Review> findByUserId(String userId) {
-        return reviewRepository.findByUserId(userId);
-    }
-
-    public List<Review> findByIsVerifiedTrue() {
-        return reviewRepository.findByIsVerifiedTrue();
-    }
-
-    public boolean isVerified(String reviewId) {
-        return reviewRepository.findById(reviewId).isPresent();
-    }
-
-    public Review approveReview(String reviewId) {
-        Optional<Review> optionalReview = reviewRepository.findById(reviewId);
-        if (optionalReview.isPresent()) {
-            Review review = optionalReview.get();
-            review.setVerified(true); // Approving the review
-            return reviewRepository.save(review);
-        } else {
-            throw new IllegalArgumentException("Review not found with ID: " + reviewId);
-        }
     }
 
     public Review postReview(Review review) {
-        // Ensure the review is unverified by default
+        // 1) mark un-verified & save
         review.setVerified(false);
+        Review saved = reviewRepository.save(review);
 
-        // Save the review to the database
-        Review savedReview = reviewRepository.save(review);
-
-        // Retrieve the product associated with the review
-        Product product = productRepository.findById(review.getProductId())
-                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + review.getProductId()));
-
-        // Initialize the reviewIds list if null, then add the new review's id
+        // 2) link into product.reviewIds
+        Product product = productRepository.findById(saved.getProductId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Product not found: " + saved.getProductId()));
         if (product.getReviewIds() == null) {
             product.setReviewIds(new ArrayList<>());
         }
-        product.getReviewIds().add(savedReview.getReviewId());
-
-        // Save the updated product
+        product.getReviewIds().add(saved.getReviewId());
         productRepository.save(product);
 
-        return savedReview;
+        // 3) recompute average rating over *all* reviews for this product
+        List<Review> allReviews = reviewRepository.findByProductId(product.getProductId());
+        double avg = allReviews.stream()
+                .mapToDouble(Review::getRating)
+                .average()
+                .orElse(0.0);
+
+        product.setRating(avg);
+        productRepository.save(product);
+
+        return saved;
     }
 
+    public Review approveReview(String reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found"));
+        review.setVerified(true);
+        return reviewRepository.save(review);
+    }
 
+    public Review declineReview(String reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found"));
+        review.setVerified(false);
+        return reviewRepository.save(review);
+    }
 
+    public List<Review> getVerifiedReviewsForProduct(String productId) {
+        return reviewRepository.findByProductIdAndVerifiedTrue(productId);
+    }
 }
+
+
