@@ -9,6 +9,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.HttpHeaders;
+import java.time.Duration;
+
 @RestController
 @RequestMapping("/api/main")
 public class MainController {
@@ -108,16 +114,43 @@ public class MainController {
 
 
     @PostMapping("/cart/add")
-    public ResponseEntity<String> addToCart(
-            @RequestParam String userId,
-            @RequestParam String productId) {
-        return cartService.addToCart(userId, productId);
+    public ResponseEntity<AddToCartResponse> addToCart(
+            @CookieValue(value="CART_ID", required=false) String cartId,
+            @RequestParam String productId,
+            HttpServletResponse servletResponse
+    ) {
+        // delegate to service:
+        ResponseEntity<AddToCartResponse> resp = cartService.addToCart(cartId, productId);
+
+        // if the service just created a new cart, set a cookie
+        if (resp.getStatusCode().is2xxSuccessful()) {
+            AddToCartResponse body = resp.getBody();
+            if (body != null && (cartId == null || !cartId.equals(body.getCartId()))) {
+                ResponseCookie cookie = ResponseCookie.from("CART_ID", body.getCartId())
+                        .httpOnly(true)
+                        .path("/")
+                        .maxAge(Duration.ofDays(30))
+                        .build();
+                servletResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+            }
+        }
+
+        return resp;
     }
 
 
-    @GetMapping("/cart/items")
-    public ResponseEntity<List<CartItem>> getCartItems(@RequestParam String userId) {
-        return cartService.getCartItems(userId);
+    @GetMapping("/items")
+    public ResponseEntity<List<CartItem>> getCartItems(
+            @RequestParam String cartId) {
+
+        List<CartItem> items = cartService.getCartItems(cartId);
+        return ResponseEntity.ok(items);
+    }
+
+    @DeleteMapping("/cart/clear")
+    public ResponseEntity<Void> clearCart(@RequestParam String cartId) {
+        cartService.clearCart(cartId);
+        return ResponseEntity.noContent().build();
     }
 
 
