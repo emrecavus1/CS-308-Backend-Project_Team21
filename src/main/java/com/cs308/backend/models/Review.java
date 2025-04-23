@@ -16,7 +16,7 @@ public class Review {
     private String reviewId;
     private double rating;
     private String comment;
-    private boolean isVerified;
+    private boolean verified;
     private String userId;
     private String productId;
 

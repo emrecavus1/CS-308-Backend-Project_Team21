@@ -54,16 +54,14 @@ public class MainController {
                 product, // Pass the full Product object
                 product.getProductName(),
                 product.getProductInfo(),
-
                 categoryName, // Pass categoryName instead of categoryId
                 product.getStockCount(),
-                product.getImageUrl(),
                 product.getSerialNumber(),
                 product.getWarrantyStatus(),
                 product.getDistributorInfo()
         );
 
-        return response; // Return the response message from ProductService
+        return response;
     }
 
     @PostMapping("/addCategory")
@@ -82,6 +80,12 @@ public class MainController {
     public ResponseEntity<Review> approveReview(@PathVariable String reviewId) {
         Review approved = reviewService.approveReview(reviewId);
         return ResponseEntity.ok(approved);
+    }
+
+    @PostMapping("/declineReview/{reviewId}")
+    public ResponseEntity<Review> declineReview(@PathVariable String reviewId) {
+        Review declined = reviewService.declineReview(reviewId);
+        return ResponseEntity.ok(declined);
     }
 
     @PostMapping("/postReview")
@@ -129,6 +133,12 @@ public class MainController {
         return ResponseEntity.ok(sortedProducts);
     }
 
+    @GetMapping("/sortProductsByRating")
+    public ResponseEntity<List<Product>> sortProductsByRating(@RequestParam(defaultValue = "desc") String order) {
+        List<Product> sortedProducts = productService.sortProductsByRating();
+        return ResponseEntity.ok(sortedProducts);
+    }
+
     /** Add a product to this user’s wishlist */
     @PostMapping("/{userId}/wishlist/{productId}")
     public ResponseEntity<String> addToWishlist(
@@ -151,6 +161,15 @@ public class MainController {
             @PathVariable String userId) {
         return userService.getWishlist(userId);
     }
+
+    @GetMapping("/product/{productId}/verified")
+    public ResponseEntity<List<Review>> getVerifiedReviewsForProduct(
+            @PathVariable String productId
+    ) {
+        List<Review> reviews = reviewService.getVerifiedReviewsForProduct(productId);
+        return ResponseEntity.ok(reviews);
+    }
+
 
 
 

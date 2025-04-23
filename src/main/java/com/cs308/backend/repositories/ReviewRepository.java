@@ -8,12 +8,10 @@ import java.util.List;
 @Repository
 public interface ReviewRepository extends MongoRepository<Review, String> {
 
-    // Find reviews by product ID
+    List<Review> findByProductIdAndVerifiedTrue(String productId);
+
     List<Review> findByProductId(String productId);
 
     // Find all reviews by a user
     List<Review> findByUserId(String userId);
-
-    // Find all verified reviews
-    List<Review> findByIsVerifiedTrue();
 }
