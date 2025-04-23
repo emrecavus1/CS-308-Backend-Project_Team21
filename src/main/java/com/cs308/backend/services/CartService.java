@@ -19,16 +19,11 @@ public class CartService {
     }
 
     public ResponseEntity<String> addToCart(String userId, String productId) {
-        // 1) check product exists & in stock
+        // 1) fetch the product and assert it exists
         Product p = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found!"));
-        if (p.getStockCount() < 1) {
-            return ResponseEntity.badRequest().body("No available stocks!");
-        }
 
-        // ← **NO longer reduce stock here!**
-
-        // 2) fetch-or-create cart
+        // 2) fetch-or-create the user's cart
         Cart cart = cartRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     Cart c = new Cart();
@@ -36,21 +31,32 @@ public class CartService {
                     return c;
                 });
 
-        // 3) find an existing CartItem or add a new one
+        // 3) look for an existing line in the cart
         List<CartItem> items = cart.getItems();
         CartItem match = items.stream()
                 .filter(ci -> ci.getProductId().equals(productId))
                 .findFirst()
                 .orElse(null);
 
+        // compute what the new quantity would be
+        int newQuantity = (match != null ? match.getQuantity() : 0) + 1;
+
+        // 4) enforce stock constraint
+        if (p.getStockCount() < newQuantity) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Cannot add more than " + p.getStockCount() + " of this item to your cart.");
+        }
+
+        // 5) commit to cart
         if (match != null) {
-            match.setQuantity(match.getQuantity() + 1);
+            match.setQuantity(newQuantity);
         } else {
             items.add(new CartItem(productId, 1));
         }
-
         cart.setItems(items);
         cartRepository.save(cart);
+
         return ResponseEntity.ok("Product added to cart successfully!");
     }
 
