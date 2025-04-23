@@ -25,6 +25,7 @@ public class Product {
     private double price;
     private String productName;
     private List<String> reviewIds;
+    private double rating;
     private String productInfo;
     private String categoryId;
     private String warrantyStatus;

@@ -28,7 +28,15 @@ public class SecureTokenServiceImpl implements SecureTokenService {
 
     @Override
     public Optional<SecureToken> getToken(String token) {
-        return tokenRepo.findByToken(token);
+
+        return tokenRepo.findByToken(token).filter(t -> {
+                    if (t.getExpiredAt().isBefore(LocalDateTime.now())) {
+                        // expired → clean up & filter out
+                        tokenRepo.removeByToken(token);
+                        return false;
+                    }
+                    return true;
+                });
     }
 
     @Override

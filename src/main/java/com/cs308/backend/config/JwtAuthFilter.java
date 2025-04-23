@@ -1,7 +1,7 @@
 package com.cs308.backend.config;  // or .config
 
 import com.cs308.backend.services.SecureTokenService;
-import com.cs308.backend.models.User;
+import com.cs308.backend.models.*;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -27,20 +27,33 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain         chain
     ) throws ServletException, IOException {
         String header = request.getHeader("Authorization");
+
         if (header != null && header.startsWith("Bearer ")) {
             String rawToken = header.substring(7);
-            tokenService.getToken(rawToken).ifPresent(secToken -> {
+            try {
+                SecureToken secToken = tokenService.getToken(rawToken)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid or expired token"));
+
                 User user = secToken.getUser();
-                // Build an Authentication and store it in the SecurityContext
+                // You can load real roles/authorities here if you have them
                 var auth = new UsernamePasswordAuthenticationToken(
                         user.getUserId(),
                         null,
-                        List.of()   // ← you can load actual GrantedAuthorities here
+                        List.of()
                 );
                 SecurityContextHolder.getContext().setAuthentication(auth);
-            });
+
+            } catch (IllegalArgumentException ex) {
+                // token missing / expired
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"" + ex.getMessage() + "\"}");
+                return;  // do not continue down filter chain
+            }
         }
-        // continue down the filter chain
+
+        // Either no Authorization header or a valid token → continue
         chain.doFilter(request, response);
     }
+
 }
