@@ -70,43 +70,32 @@ public class OrderService {
     }
 
 
-    public String createOrderFromCart(String userId) {
-        // 1) fetch-or-404 the cart
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalStateException("Cart not found"));
+    public String createOrderFromCart(String cartId, String userId) {
+        Cart cart = cartRepository.findById(cartId)
+                .orElseThrow(() -> new IllegalArgumentException("Cart not found: " + cartId));
 
-        // 2) pull out CartItems
         List<CartItem> items = cart.getItems();
-        if (items.isEmpty()) {
-            throw new IllegalStateException("Cart is empty");
-        }
+        if (items.isEmpty()) throw new IllegalStateException("Cart is empty");
 
-        // 3) extract parallel lists of IDs and quantities
+        // extract parallel lists
         List<String>  productIds = items.stream()
                 .map(CartItem::getProductId)
-                .collect(Collectors.toList());
+                .toList();
         List<Integer> quantities = items.stream()
                 .map(CartItem::getQuantity)
-                .collect(Collectors.toList());
+                .toList();
 
-        // 4) build the Order
         Order o = new Order();
         o.setOrderId(UUID.randomUUID().toString());
-        o.setCartId(cart.getCartId());
+        o.setCartId(cartId);
         o.setUserId(userId);
         o.setStatus("Processing");
         o.setPaid(false);
         o.setShipped(false);
-
-        // ← snapshot both fields
         o.setProductIds(productIds);
         o.setQuantities(quantities);
 
         orderRepository.save(o);
-
-        // 5) clear out the cart for next time
-        cart.getItems().clear();
-        cartRepository.save(cart);
 
         return o.getOrderId();
     }
