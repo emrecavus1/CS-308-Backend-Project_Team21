@@ -45,8 +45,11 @@ public class AuthController {
         if (!passwordError.isEmpty()) errors.add("Password: " + passwordError);
 
         // Name validation
-        String nameError = userChecks.nameChecks(user.getName(), user.getSurname()).getBody();
-        if (!nameError.isEmpty()) errors.add("Name/Surname: " + nameError);
+        String nameError = userChecks.nameChecks(user.getName()).getBody();
+        if (!nameError.isEmpty()) errors.add("Name: " + nameError);
+
+        String surnameError = userChecks.surnameChecks(user.getSurname()).getBody();
+        if (!surnameError.isEmpty()) errors.add("Surname: " + surnameError);
 
         // Role validation
         String roleError = userChecks.roleChecks(user.getRole()).getBody();
