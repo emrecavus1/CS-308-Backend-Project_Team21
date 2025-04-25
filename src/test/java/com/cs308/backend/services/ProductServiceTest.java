@@ -48,7 +48,6 @@ public class ProductServiceTest {
         testProduct.setCategoryId(testCategory.getCategoryId());
         testProduct.setStockCount(10);
         testProduct.setPrice(99.99);
-        testProduct.setImageUrl("http://example.com/image.jpg");
         testProduct.setSerialNumber("SN12345");
         testProduct.setWarrantyStatus("1 year");
         testProduct.setDistributorInfo("Test Distributor");
@@ -69,7 +68,6 @@ public class ProductServiceTest {
                 testProduct.getProductInfo(),
                 testCategory.getCategoryName(),
                 testProduct.getStockCount(),
-                testProduct.getImageUrl(),
                 testProduct.getSerialNumber(),
                 testProduct.getWarrantyStatus(),
                 testProduct.getDistributorInfo()

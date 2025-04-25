@@ -1,23 +1,25 @@
 // 1. UserServiceTest.java
 package com.cs308.backend.services;
 
-import com.cs308.backend.exception.InvalidTokenException;
-import com.cs308.backend.exception.UnknownIdentifierException;
 import com.cs308.backend.exception.UserAlreadyExistsException;
-import com.cs308.backend.mailing.AccountVerificationEmailContext;
 import com.cs308.backend.mailing.EmailService;
-import com.cs308.backend.models.SecureToken;
+import com.cs308.backend.models.Product;
 import com.cs308.backend.models.User;
+import com.cs308.backend.repositories.ProductRepository;
 import com.cs308.backend.repositories.UserRepository;
-import jakarta.mail.MessagingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.core.env.Environment;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,6 +33,9 @@ public class UserServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private ProductRepository productRepository;
+
+    @Mock
     private EmailService emailService;
 
     @Mock
@@ -39,10 +44,14 @@ public class UserServiceTest {
     @Mock
     private Environment env;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     @InjectMocks
     private UserService userService;
 
     private User testUser;
+    private String testProductId;
 
     @BeforeEach
     public void setup() {
@@ -58,22 +67,22 @@ public class UserServiceTest {
         testUser.setCity("ISTANBUL");
         testUser.setSpecificAddress("123 Test Street, Neighborhood, District");
         testUser.setPhoneNumber("05551234567");
+        testUser.setWishList(new ArrayList<>());
+
+        testProductId = UUID.randomUUID().toString();
     }
 
     @Test
-    public void testRegisterUser_Successful() throws MessagingException {
+    public void testRegisterUser_Successful() {
         // Arrange
         when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
-        doNothing().when(emailService).sendMail(any(AccountVerificationEmailContext.class));
-        when(env.getProperty(eq("site.base.url.https"), anyString())).thenReturn("https://localhost:8080");
-        when(secureTokenService.createToken(any(SecureToken.class))).thenReturn(new SecureToken("token", LocalDateTime.now().plusMinutes(15), testUser));
 
         // Act & Assert
         assertDoesNotThrow(() -> userService.registerUser(testUser));
         verify(userRepository, times(1)).save(testUser);
-        verify(secureTokenService, times(1)).createToken(any(SecureToken.class));
-        verify(emailService, times(1)).sendMail(any(AccountVerificationEmailContext.class));
+        verify(passwordEncoder, times(1)).encode(anyString());
     }
 
     @Test
@@ -91,33 +100,89 @@ public class UserServiceTest {
     }
 
     @Test
-    public void testVerifyUser_Successful() {
+    public void testAuthenticate_Successful() {
         // Arrange
-        String token = "valid-token";
-        SecureToken secureToken = new SecureToken(token, LocalDateTime.now().plusMinutes(10), testUser);
+        String rawPassword = "Password1!";
+        String encodedPassword = "encodedPassword";
+        testUser.setPassword(encodedPassword);
 
-        when(secureTokenService.getToken(token)).thenReturn(Optional.of(secureToken));
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches(rawPassword, encodedPassword)).thenReturn(true);
+
+        // Act
+        User result = userService.authenticate(testUser.getEmail(), rawPassword);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(testUser, result);
+    }
+
+    @Test
+    public void testAuthenticate_InvalidCredentials() {
+        // Arrange
+        String rawPassword = "WrongPassword";
+        String encodedPassword = "encodedPassword";
+        testUser.setPassword(encodedPassword);
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches(rawPassword, encodedPassword)).thenReturn(false);
+
+        // Act
+        User result = userService.authenticate(testUser.getEmail(), rawPassword);
+
+        // Assert
+        assertNull(result);
+    }
+
+    @Test
+    public void testAddToWishlist_Successful() {
+        // Arrange
+        when(userRepository.findById(testUser.getUserId())).thenReturn(Optional.of(testUser));
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         // Act
-        assertDoesNotThrow(() -> userService.verifyUser(token));
+        ResponseEntity<String> response = userService.addToWishlist(testUser.getUserId(), testProductId);
 
         // Assert
-        assertTrue(testUser.isAccountVerified());
+        assertEquals("Product added to wishlist.", response.getBody());
+        assertEquals(200, response.getStatusCodeValue());
+        assertTrue(testUser.getWishList().contains(testProductId));
         verify(userRepository, times(1)).save(testUser);
     }
 
     @Test
-    public void testVerifyUser_ExpiredToken() {
+    public void testRemoveFromWishlist_Successful() {
         // Arrange
-        String token = "expired-token";
-        SecureToken secureToken = new SecureToken(token, LocalDateTime.now().minusMinutes(10), testUser);
+        testUser.getWishList().add(testProductId);
+        when(userRepository.findById(testUser.getUserId())).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
-        when(secureTokenService.getToken(token)).thenReturn(Optional.of(secureToken));
+        // Act
+        ResponseEntity<String> response = userService.removeFromWishlist(testUser.getUserId(), testProductId);
 
-        // Act & Assert
-        assertThrows(InvalidTokenException.class, () -> userService.verifyUser(token));
-        assertFalse(testUser.isAccountVerified());
-        verify(userRepository, never()).save(any(User.class));
+        // Assert
+        assertEquals("Product removed from wishlist.", response.getBody());
+        assertEquals(200, response.getStatusCodeValue());
+        assertFalse(testUser.getWishList().contains(testProductId));
+        verify(userRepository, times(1)).save(testUser);
+    }
+
+    @Test
+    public void testGetWishlist_Successful() {
+        // Arrange
+        testUser.getWishList().add(testProductId);
+        Product testProduct = new Product();
+        testProduct.setProductId(testProductId);
+
+        when(userRepository.findById(testUser.getUserId())).thenReturn(Optional.of(testUser));
+        when(productRepository.findAllById(Collections.singletonList(testProductId))).thenReturn(Collections.singletonList(testProduct));
+
+        // Act
+        ResponseEntity<List<Product>> response = userService.getWishlist(testUser.getUserId());
+
+        // Assert
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(1, response.getBody().size());
+        assertEquals(testProductId, response.getBody().get(0).getProductId());
     }
 }

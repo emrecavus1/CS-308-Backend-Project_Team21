@@ -66,6 +66,7 @@ public class ReviewServiceTest {
         when(productRepository.findById(testReview.getProductId())).thenReturn(Optional.of(testProduct));
         when(reviewRepository.save(any(Review.class))).thenReturn(testReview);
         when(productRepository.save(any(Product.class))).thenReturn(testProduct);
+        when(reviewRepository.findByProductId(testProduct.getProductId())).thenReturn(List.of(testReview));
 
         // Act
         Review result = reviewService.postReview(testReview);
@@ -73,7 +74,7 @@ public class ReviewServiceTest {
         // Assert
         assertFalse(result.isVerified()); // Should be unverified by default
         verify(reviewRepository, times(1)).save(testReview);
-        verify(productRepository, times(1)).save(testProduct);
+        verify(productRepository, times(2)).save(testProduct); // Called twice due to rating calculation
         assertTrue(testProduct.getReviewIds().contains(testReview.getReviewId()));
     }
 
@@ -105,17 +106,17 @@ public class ReviewServiceTest {
     }
 
     @Test
-    public void testFindByIsVerifiedTrue_ReturnsVerifiedReviews() {
+    public void testGetVerifiedReviewsForProduct_ReturnsVerifiedReviews() {
         // Arrange
         testReview.setVerified(true);
-        when(reviewRepository.findByIsVerifiedTrue()).thenReturn(List.of(testReview));
+        when(reviewRepository.findByProductIdAndVerifiedTrue(testProduct.getProductId())).thenReturn(List.of(testReview));
 
         // Act
-        List<Review> result = reviewService.findByIsVerifiedTrue();
+        List<Review> result = reviewService.getVerifiedReviewsForProduct(testProduct.getProductId());
 
         // Assert
         assertEquals(1, result.size());
         assertTrue(result.get(0).isVerified());
-        verify(reviewRepository, times(1)).findByIsVerifiedTrue();
+        verify(reviewRepository, times(1)).findByProductIdAndVerifiedTrue(testProduct.getProductId());
     }
 }

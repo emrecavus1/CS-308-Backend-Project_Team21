@@ -78,18 +78,15 @@ public class OrderServiceTest {
     @Test
     public void testCreateOrderFromCart_Successful() {
         // Arrange
-        when(cartRepository.findByUserId(userId)).thenReturn(Optional.of(testCart));
+        when(cartRepository.findById(testCart.getCartId())).thenReturn(Optional.of(testCart));
         when(orderRepository.save(any(Order.class))).thenReturn(testOrder);
-        when(cartRepository.save(any(Cart.class))).thenReturn(testCart);
 
         // Act
-        String orderId = orderService.createOrderFromCart(userId);
+        String orderId = orderService.createOrderFromCart(testCart.getCartId(), userId);
 
         // Assert
         assertNotNull(orderId);
         verify(orderRepository, times(1)).save(any(Order.class));
-        verify(cartRepository, times(1)).save(testCart);
-        assertTrue(testCart.getItems().isEmpty()); // Cart should be cleared
     }
 
     @Test

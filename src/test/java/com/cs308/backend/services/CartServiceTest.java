@@ -4,6 +4,7 @@ package com.cs308.backend.services;
 import com.cs308.backend.models.Cart;
 import com.cs308.backend.models.CartItem;
 import com.cs308.backend.models.Product;
+import com.cs308.backend.models.AddToCartResponse;
 import com.cs308.backend.repositories.CartRepository;
 import com.cs308.backend.repositories.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,13 +36,13 @@ public class CartServiceTest {
 
     private Product testProduct;
     private Cart testCart;
-    private String userId;
+    private String cartId;
 
     @BeforeEach
     public void setup() {
         MockitoAnnotations.openMocks(this);
 
-        userId = UUID.randomUUID().toString();
+        cartId = UUID.randomUUID().toString();
 
         testProduct = new Product();
         testProduct.setProductId(UUID.randomUUID().toString());
@@ -50,8 +51,8 @@ public class CartServiceTest {
         testProduct.setPrice(99.99);
 
         testCart = new Cart();
-        testCart.setCartId(UUID.randomUUID().toString());
-        testCart.setUserId(userId);
+        testCart.setCartId(cartId);
+        testCart.setUserId(UUID.randomUUID().toString());
         testCart.setItems(new ArrayList<>());
     }
 
@@ -59,21 +60,21 @@ public class CartServiceTest {
     public void testAddToCart_NewItem_Successful() {
         // Arrange
         when(productRepository.findById(testProduct.getProductId())).thenReturn(Optional.of(testProduct));
-        when(cartRepository.findByUserId(userId)).thenReturn(Optional.of(testCart));
+        when(cartRepository.existsById(cartId)).thenReturn(true);
+        when(cartRepository.findById(cartId)).thenReturn(Optional.of(testCart));
         when(cartRepository.save(any(Cart.class))).thenReturn(testCart);
-        when(productRepository.save(any(Product.class))).thenReturn(testProduct);
 
         // Act
-        ResponseEntity<String> response = cartService.addToCart(userId, testProduct.getProductId());
+        ResponseEntity<AddToCartResponse> response = cartService.addToCart(cartId, testProduct.getProductId());
 
         // Assert
-        assertEquals("Product added to cart successfully!", response.getBody());
         assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertEquals(cartId, response.getBody().getCartId());
+        assertTrue(response.getBody().getMessage().contains("You now have 1×"));
         assertEquals(1, testCart.getItems().size());
         assertEquals(testProduct.getProductId(), testCart.getItems().get(0).getProductId());
         assertEquals(1, testCart.getItems().get(0).getQuantity());
-        assertEquals(9, testProduct.getStockCount()); // Stock reduced by 1
-        verify(productRepository, times(1)).save(testProduct);
         verify(cartRepository, times(1)).save(testCart);
     }
 
@@ -84,20 +85,20 @@ public class CartServiceTest {
         testCart.getItems().add(existingItem);
 
         when(productRepository.findById(testProduct.getProductId())).thenReturn(Optional.of(testProduct));
-        when(cartRepository.findByUserId(userId)).thenReturn(Optional.of(testCart));
+        when(cartRepository.existsById(cartId)).thenReturn(true);
+        when(cartRepository.findById(cartId)).thenReturn(Optional.of(testCart));
         when(cartRepository.save(any(Cart.class))).thenReturn(testCart);
-        when(productRepository.save(any(Product.class))).thenReturn(testProduct);
 
         // Act
-        ResponseEntity<String> response = cartService.addToCart(userId, testProduct.getProductId());
+        ResponseEntity<AddToCartResponse> response = cartService.addToCart(cartId, testProduct.getProductId());
 
         // Assert
-        assertEquals("Product added to cart successfully!", response.getBody());
         assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertEquals(cartId, response.getBody().getCartId());
+        assertTrue(response.getBody().getMessage().contains("You now have 2×"));
         assertEquals(1, testCart.getItems().size());
         assertEquals(2, testCart.getItems().get(0).getQuantity()); // Quantity increased
-        assertEquals(9, testProduct.getStockCount()); // Stock reduced by 1
-        verify(productRepository, times(1)).save(testProduct);
         verify(cartRepository, times(1)).save(testCart);
     }
 
@@ -105,36 +106,53 @@ public class CartServiceTest {
     public void testAddToCart_CreateNewCartIfNotExists() {
         // Arrange
         when(productRepository.findById(testProduct.getProductId())).thenReturn(Optional.of(testProduct));
-        when(cartRepository.findByUserId(userId)).thenReturn(Optional.empty()); // No existing cart
+        when(cartRepository.existsById(cartId)).thenReturn(false);
         when(cartRepository.save(any(Cart.class))).thenReturn(testCart);
-        when(productRepository.save(any(Product.class))).thenReturn(testProduct);
 
         // Act
-        ResponseEntity<String> response = cartService.addToCart(userId, testProduct.getProductId());
+        ResponseEntity<AddToCartResponse> response = cartService.addToCart(cartId, testProduct.getProductId());
 
         // Assert
-        assertEquals("Product added to cart successfully!", response.getBody());
         assertEquals(200, response.getStatusCodeValue());
-        verify(productRepository, times(1)).save(testProduct);
+        assertNotNull(response.getBody());
+        assertNotNull(response.getBody().getCartId()); // Just check that a cartId is assigned
+        assertTrue(response.getBody().getMessage().contains("New cart created"));
         verify(cartRepository, times(1)).save(any(Cart.class));
     }
 
     @Test
-    public void testDeleteProductsInCart_Successful() {
+    public void testClearCart_Successful() {
         // Arrange
         CartItem item = new CartItem(testProduct.getProductId(), 2);
         testCart.getItems().add(item);
 
-        when(cartRepository.findByUserId(userId)).thenReturn(Optional.of(testCart));
+        when(cartRepository.findById(cartId)).thenReturn(Optional.of(testCart));
         when(cartRepository.save(any(Cart.class))).thenReturn(testCart);
 
         // Act
-        ResponseEntity<String> response = cartService.deleteProductsInCart(userId);
+        cartService.clearCart(cartId);
 
         // Assert
-        assertEquals("Cart cleared.", response.getBody());
-        assertEquals(200, response.getStatusCodeValue());
         assertTrue(testCart.getItems().isEmpty());
         verify(cartRepository, times(1)).save(testCart);
     }
+
+    @Test
+    public void testGetCartItems_ReturnsItems() {
+        // Arrange
+        CartItem item = new CartItem(testProduct.getProductId(), 2);
+        testCart.getItems().add(item);
+
+        when(cartRepository.findById(cartId)).thenReturn(Optional.of(testCart));
+
+        // Act
+        List<CartItem> result = cartService.getCartItems(cartId);
+
+        // Assert
+        assertEquals(1, result.size());
+        assertEquals(testProduct.getProductId(), result.get(0).getProductId());
+        assertEquals(2, result.get(0).getQuantity());
+    }
 }
+
+// No need to define AddToCartResponse here as it's already defined in com.cs308.backend.models package
