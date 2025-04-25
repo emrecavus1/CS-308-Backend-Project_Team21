@@ -9,6 +9,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.HttpHeaders;
+import java.time.Duration;
+
 @RestController
 @RequestMapping("/api/main")
 public class MainController {
@@ -54,16 +60,14 @@ public class MainController {
                 product, // Pass the full Product object
                 product.getProductName(),
                 product.getProductInfo(),
-
                 categoryName, // Pass categoryName instead of categoryId
                 product.getStockCount(),
-                product.getImageUrl(),
                 product.getSerialNumber(),
                 product.getWarrantyStatus(),
                 product.getDistributorInfo()
         );
 
-        return response; // Return the response message from ProductService
+        return response;
     }
 
     @PostMapping("/addCategory")
@@ -82,6 +86,12 @@ public class MainController {
     public ResponseEntity<Review> approveReview(@PathVariable String reviewId) {
         Review approved = reviewService.approveReview(reviewId);
         return ResponseEntity.ok(approved);
+    }
+
+    @PostMapping("/declineReview/{reviewId}")
+    public ResponseEntity<Review> declineReview(@PathVariable String reviewId) {
+        Review declined = reviewService.declineReview(reviewId);
+        return ResponseEntity.ok(declined);
     }
 
     @PostMapping("/postReview")
@@ -104,16 +114,43 @@ public class MainController {
 
 
     @PostMapping("/cart/add")
-    public ResponseEntity<String> addToCart(
-            @RequestParam String userId,
-            @RequestParam String productId) {
-        return cartService.addToCart(userId, productId);
+    public ResponseEntity<AddToCartResponse> addToCart(
+            @CookieValue(value="CART_ID", required=false) String cartId,
+            @RequestParam String productId,
+            HttpServletResponse servletResponse
+    ) {
+        // delegate to service:
+        ResponseEntity<AddToCartResponse> resp = cartService.addToCart(cartId, productId);
+
+        // if the service just created a new cart, set a cookie
+        if (resp.getStatusCode().is2xxSuccessful()) {
+            AddToCartResponse body = resp.getBody();
+            if (body != null && (cartId == null || !cartId.equals(body.getCartId()))) {
+                ResponseCookie cookie = ResponseCookie.from("CART_ID", body.getCartId())
+                        .httpOnly(true)
+                        .path("/")
+                        .maxAge(Duration.ofDays(30))
+                        .build();
+                servletResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+            }
+        }
+
+        return resp;
     }
 
 
-    @GetMapping("/cart/items")
-    public ResponseEntity<List<CartItem>> getCartItems(@RequestParam String userId) {
-        return cartService.getCartItems(userId);
+    @GetMapping("/items")
+    public ResponseEntity<List<CartItem>> getCartItems(
+            @RequestParam String cartId) {
+
+        List<CartItem> items = cartService.getCartItems(cartId);
+        return ResponseEntity.ok(items);
+    }
+
+    @DeleteMapping("/cart/clear")
+    public ResponseEntity<Void> clearCart(@RequestParam String cartId) {
+        cartService.clearCart(cartId);
+        return ResponseEntity.noContent().build();
     }
 
 
@@ -127,6 +164,43 @@ public class MainController {
     public ResponseEntity<List<Product>> sortProductsByPrice(@RequestParam(defaultValue = "asc") String order) {
         List<Product> sortedProducts = productService.sortProductsByPrice();
         return ResponseEntity.ok(sortedProducts);
+    }
+
+    @GetMapping("/sortProductsByRating")
+    public ResponseEntity<List<Product>> sortProductsByRating(@RequestParam(defaultValue = "desc") String order) {
+        List<Product> sortedProducts = productService.sortProductsByRating();
+        return ResponseEntity.ok(sortedProducts);
+    }
+
+    /** Add a product to this user’s wishlist */
+    @PostMapping("/{userId}/wishlist/{productId}")
+    public ResponseEntity<String> addToWishlist(
+            @PathVariable String userId,
+            @PathVariable String productId) {
+        return userService.addToWishlist(userId, productId);
+    }
+
+    /** Remove a product from this user’s wishlist */
+    @DeleteMapping("/{userId}/wishlist/{productId}")
+    public ResponseEntity<String> removeFromWishlist(
+            @PathVariable String userId,
+            @PathVariable String productId) {
+        return userService.removeFromWishlist(userId, productId);
+    }
+
+    /** Get all products in this user’s wishlist */
+    @GetMapping("/{userId}/wishlist")
+    public ResponseEntity<List<Product>> getWishlist(
+            @PathVariable String userId) {
+        return userService.getWishlist(userId);
+    }
+
+    @GetMapping("/product/{productId}/verified")
+    public ResponseEntity<List<Review>> getVerifiedReviewsForProduct(
+            @PathVariable String productId
+    ) {
+        List<Review> reviews = reviewService.getVerifiedReviewsForProduct(productId);
+        return ResponseEntity.ok(reviews);
     }
 
 

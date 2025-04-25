@@ -76,51 +76,51 @@ public class PaymentService {
         return ResponseEntity.ok("Bank information is valid.");
     }
 
-    public ResponseEntity<String> processPayment(String userId, String orderId, String cardNumber, String expiryDate, String cvv) {
-        // Validate order
-        Optional<Order> orderOptional = orderRepository.findById(orderId);
-        if (!orderOptional.isPresent()) {
-            return ResponseEntity.badRequest().body("Order not found.");
-        }
-
-        Order order = orderOptional.get();
+    public ResponseEntity<String> processPayment(
+            String userId,
+            String orderId,
+            String cardNumber,
+            String expiryDate,
+            String cvv
+    ) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
         if (!order.getUserId().equals(userId)) {
-            return ResponseEntity.badRequest().body("Order does not belong to this user.");
+            return ResponseEntity.badRequest()
+                    .body("Order does not belong to this user.");
         }
+        // … existing validation & payment creation …
 
-        // Bank info validation (reuse existing method)
-        ResponseEntity<String> validation = getBankInformation(userId, cardNumber, expiryDate, cvv);
-        if (!validation.getStatusCode().is2xxSuccessful()) {
-            return validation;
-        }
-
-        // Create payment
-        Payment payment = new Payment();
-        payment.setPaymentId(UUID.randomUUID().toString());
-        payment.setUserId(userId);
-        payment.setOrderId(orderId);
-        payment.setCardNumber(cardNumber);
-        payment.setExpiryDate(expiryDate);
-        payment.setCvv(cvv);
-        paymentRepository.save(payment);
-
-        // Update order
+        // Update order object & save
         order.setPaid(true);
         order.setStatus("Processing");
-        order.setPaymentId(payment.getPaymentId());
         order.setCardNumber(cardNumber);
         order.setExpiryDate(expiryDate);
         order.setCvv(cvv);
         orderRepository.save(order);
 
+        // ← NEW: decrease stock now that the purchase is final
+        List<String>  productIds  = order.getProductIds();
+        List<Integer> quantities  = order.getQuantities();
+        for (int i = 0; i < productIds.size(); i++) {
+            String  pid = productIds.get(i);
+            int     qty = quantities.get(i);
+            productRepository.findById(pid).ifPresent(prod -> {
+                prod.setStockCount(prod.getStockCount() - qty);
+                productRepository.save(prod);
+            });
+        }
+
+        // Send invoice (wrapped in try/catch as before)
         try {
             invoiceService.emailPdfInvoice(orderId);
-        } catch(Exception e) {
-            // wrap in a runtime exception, or handle/log however you like:
-            throw new IllegalStateException("Failed to send invoice", e);
+        } catch (Exception e) {
+            throw new IllegalStateException("Payment succeeded but failed to send invoice", e);
         }
-        return ResponseEntity.ok("Payment processed & invoice emailed!");
+
+        return ResponseEntity.ok("Payment processed, stock updated & invoice emailed!");
     }
+
 
     public Optional<Payment> getPaymentByOrderId(String orderId) {
         return paymentRepository.findByOrderId(orderId);

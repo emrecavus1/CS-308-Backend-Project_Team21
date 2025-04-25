@@ -1,55 +1,60 @@
 package com.cs308.backend.config;
 
+import com.cs308.backend.config.JwtAuthFilter;
+import com.cs308.backend.services.SecureTokenService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Configuration
-@EnableWebSecurity
 public class SecurityConfig {
+
+    private final SecureTokenService tokenService;
+
+    public SecurityConfig(SecureTokenService tokenService) {
+        this.tokenService = tokenService;
+    }
+
+    @Bean
+    public JwtAuthFilter jwtAuthFilter() {
+        return new JwtAuthFilter(tokenService);
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1) turn off CSRF (we’ll call this an API, not a browser form)
-                .csrf(AbstractHttpConfigurer::disable)
-
-                // 2) stateless session (no cookies)
-                .sessionManagement(sm -> sm
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
-                // 3) open these three endpoints to anyone
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/signup",
                                 "/api/auth/login",
-                                "/api/email/verify/**"
+                                "/api/email/verify/**",
+                                "/api/main/cart/**"        // guest‐cart endpoints
                         ).permitAll()
-                        // everything else requires authentication
+                        .requestMatchers(
+                                "/api/order/**"
+                        ).authenticated()
                         .anyRequest().permitAll()
                 )
-
-                // 4) enable HTTP‑Basic
+                // insert your JWT filter before Spring’s UsernamePasswordAuthenticationFilter
+                .addFilterBefore(jwtAuthFilter(),
+                        UsernamePasswordAuthenticationFilter.class)
+                // if you still want HTTP Basic on any leftover endpoints
                 .httpBasic(Customizer.withDefaults());
 
         return http.build();
     }
 
-    /**
-     * Use BCrypt so we never store plain‑text passwords.
-     * Inject this into your UserDetailsService or wherever
-     * you hash incoming signup passwords and compare at login.
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
 }

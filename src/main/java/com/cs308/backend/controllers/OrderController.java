@@ -4,6 +4,8 @@ import com.cs308.backend.models.*;
 import com.cs308.backend.services.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 
 import java.util.List;
 
@@ -29,53 +31,32 @@ public class OrderController {
     }
 
 
-    /*@PutMapping("/payment")
+    @PutMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<String> processPayment(
-            @RequestParam String userId,
+            @RequestParam String cartId,
             @RequestParam String cardNumber,
             @RequestParam String expiryDate,
-            @RequestParam String cvv) {
+            @RequestParam String cvv,
+            Authentication auth) {
 
-        // 1. Validate bank info, charge card, etc.
-        ResponseEntity<String> validation = paymentService.getBankInformation(userId, cardNumber, expiryDate, cvv);
-        if (!validation.getStatusCode().is2xxSuccessful()) {
-            return validation;
+        // 1) get logged‐in user ID from the security context
+        String userId = auth.getName();
+
+        // 2) create an Order from the cart
+        String orderId = orderService.createOrderFromCart(cartId, userId);
+
+        // 3) do the actual payment + invoice + stock decrement
+        ResponseEntity<String> result = paymentService.processPayment(
+                userId, orderId, cardNumber, expiryDate, cvv);
+
+        // 4) if successful, record in history & clear cart
+        if (result.getStatusCode().is2xxSuccessful()) {
+            orderHistoryService.recordOrderAndClearCart(userId, orderId);
+            cartService.clearCart(cartId);
         }
 
-        // 2. Create the Order now that we know payment can proceed
-        String newOrderId = orderService.createOrderFromCart(userId);
-        //    ^— you’d write a helper method that both checks the cart and persists the Order
-
-        // 3. Process payment & link to that order
-        return paymentService.processPayment(userId, newOrderId, cardNumber, expiryDate, cvv);
-    }*/
-
-    @PutMapping("/payment")
-    public ResponseEntity<String> processPayment(
-            @RequestParam String userId,
-            @RequestParam String cardNumber,
-            @RequestParam String expiryDate,
-            @RequestParam String cvv) {
-
-        // 1. Validate bank info, charge card, etc.
-        ResponseEntity<String> validation = paymentService.getBankInformation(userId, cardNumber, expiryDate, cvv);
-        if (!validation.getStatusCode().is2xxSuccessful()) {
-            return validation;
-        }
-
-        // 2. Create the Order now that we know payment can proceed
-        String newOrderId = orderService.createOrderFromCart(userId);
-        //    ^— you'd write a helper method that both checks the cart and persists the Order
-
-        // 3. Process payment & link to that order
-        ResponseEntity<String> paymentResponse = paymentService.processPayment(userId, newOrderId, cardNumber, expiryDate, cvv);
-
-        // 4. If payment was successful, record the order in history and clear the cart
-        if (paymentResponse.getStatusCode().is2xxSuccessful()) {
-            orderHistoryService.recordOrderAndClearCart(userId, newOrderId);
-        }
-
-        return paymentResponse;
+        return result;
     }
 
 

@@ -100,7 +100,7 @@ public class UserChecks {
         return ResponseEntity.ok("");
     }
 
-    public ResponseEntity<String> nameChecks (String name, String surname) {
+    public ResponseEntity<String> nameChecks (String name) {
         if (name == null || name.length() < 2) {
             return ResponseEntity.badRequest().body("Name must be at least 2 characters long");
         }
@@ -108,6 +108,10 @@ public class UserChecks {
         if (!isValidName(name)) {
             return ResponseEntity.badRequest().body("Name must contain only alphabetic letters and '-'");
         }
+        return ResponseEntity.ok("");
+    }
+
+    public ResponseEntity<String> surnameChecks (String surname) {
 
         if (surname == null || surname.length() < 2) {
             return ResponseEntity.badRequest().body("Surname must be at least 2 characters long");

@@ -8,6 +8,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import java.util.*;
 
+import org.springframework.http.*;
+
+
+
+
 @Service
 public class CartService {
     private final CartRepository cartRepository;
@@ -18,59 +23,76 @@ public class CartService {
         this.productRepository = productRepository;
     }
 
-    public ResponseEntity<String> addToCart(String userId, String productId) {
-        // 1) check product exists & in stock
-        Product p = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found!"));
-        if (p.getStockCount() < 1) {
-            return ResponseEntity.badRequest().body("No available stocks!");
+    public ResponseEntity<AddToCartResponse> addToCart(String cartId, String productId) {
+        try {
+            // 1) verify product exists
+            Product p = productRepository.findById(productId)
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + productId));
+
+            // 2) fetch-or-create cart
+            Cart cart;
+            boolean isNew = false;
+            if (cartId == null || !cartRepository.existsById(cartId)) {
+                cart   = new Cart();
+                cartId = UUID.randomUUID().toString();
+                cart.setCartId(cartId);
+                isNew  = true;
+            } else {
+                cart = cartRepository.findById(cartId)
+                        .orElseThrow(); // existsById already checked
+            }
+
+            // 3) find or create the CartItem
+            List<CartItem> items = cart.getItems();
+            CartItem match = items.stream()
+                    .filter(ci -> ci.getProductId().equals(productId))
+                    .findFirst()
+                    .orElse(null);
+
+            int newQty = (match != null ? match.getQuantity() : 0) + 1;
+            // 4) enforce stock constraint
+            if (p.getStockCount() < newQty) {
+                throw new IllegalStateException("Cannot add more than " + p.getStockCount() +
+                        " units of this item to your cart.");
+            }
+
+            // 5) commit to cart
+            if (match != null) {
+                match.setQuantity(newQty);
+            } else {
+                items.add(new CartItem(productId, 1));
+            }
+            cart.setItems(items);
+            cartRepository.save(cart);
+
+            AddToCartResponse body = new AddToCartResponse(
+                    cartId,
+                    (isNew ? "New cart created; " : "") +
+                            "You now have " + newQty + "× “" + p.getProductName() + "” in your cart."
+            );
+            return ResponseEntity.ok(body);
+
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            // turn any known problem into a 400
+            AddToCartResponse body = new AddToCartResponse(cartId, ex.getMessage());
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(body);
         }
-
-        // reduce stock & save
-        p.setStockCount(p.getStockCount() - 1);
-        productRepository.save(p);
-
-        // 2) fetch-or-create cart
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    Cart c = new Cart();
-                    c.setUserId(userId);
-                    return c;
-                });
-
-        // 3) find an existing CartItem for this product
-        List<CartItem> items = cart.getItems();
-        CartItem match = items.stream()
-                .filter(ci -> ci.getProductId().equals(productId))
-                .findFirst()
-                .orElse(null);
-
-        if (match != null) {
-            // bump quantity
-            match.setQuantity(match.getQuantity() + 1);
-        } else {
-            // first time: add new line
-            items.add(new CartItem(productId, 1));
-        }
-
-        cart.setItems(items);
-        cartRepository.save(cart);
-        return ResponseEntity.ok("Product added to cart successfully!");
     }
 
-    public ResponseEntity<String> deleteProductsInCart(String userId) {
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Cart not found!"));
-        cart.getItems().clear();
-        cartRepository.save(cart);
-        return ResponseEntity.ok("Cart cleared.");
+    public void clearCart(String cartId) {
+        cartRepository.findById(cartId).ifPresent(c -> {
+            c.getItems().clear();
+            cartRepository.save(c);
+        });
     }
 
     // in CartService.java
-    public ResponseEntity<List<CartItem>> getCartItems(String userId) {
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Cart not found!"));
-        return ResponseEntity.ok(cart.getItems());
+    public List<CartItem> getCartItems(String cartId) {
+        Cart cart = cartRepository.findById(cartId)
+                .orElseThrow(() -> new IllegalArgumentException("Cart not found: " + cartId));
+        return cart.getItems();
     }
 
 }

@@ -17,7 +17,7 @@ public class ProductService {
         this.categoryRepository = categoryRepository;
     }
 
-    public ResponseEntity<String> addProduct(Product product, String name, String info, String categoryName, int stock, String imageUrl, String serialNumber, String warrantyStatus, String distributorInfo) {
+    public ResponseEntity<String> addProduct(Product product, String name, String info, String categoryName, int stock, String serialNumber, String warrantyStatus, String distributorInfo) {
         if (productRepository.findByProductNameIgnoreCase(name) != null) {
             return ResponseEntity.badRequest().body("Product with this name already exists!");
         }
@@ -47,12 +47,6 @@ public class ProductService {
         }
         product.setStockCount(stock);
 
-        if (imageUrl == null || imageUrl.isEmpty())
-        {
-            return ResponseEntity.badRequest().body("Image URL cannot be empty!");
-        }
-        product.setImageUrl(imageUrl);
-
         if (serialNumber == null || serialNumber.isEmpty()) {
             return ResponseEntity.badRequest().body("Serial number cannot be empty!");
         }
@@ -66,6 +60,10 @@ public class ProductService {
         if (distributorInfo == null || distributorInfo.isEmpty()) {
             return ResponseEntity.badRequest().body("Distributor info cannot be empty!");
         }
+        // 1) generate your own ID:
+        product.setProductId(UUID.randomUUID().toString());
+
+
         product.setDistributorInfo(distributorInfo);
 
         Product savedProduct = productRepository.save(product);
@@ -162,11 +160,6 @@ public class ProductService {
                 product.setStockCount(Integer.parseInt(updates.get("stockCount").toString()));
             }
 
-            // Add other fields as needed
-            // e.g., if you allow imageUrl changes:
-            if (updates.containsKey("imageUrl")) {
-                product.setImageUrl((String) updates.get("imageUrl"));
-            }
 
             if (updates.containsKey("serialNumber")) {
                 product.setSerialNumber((String) updates.get("serialNumber"));
@@ -194,6 +187,12 @@ public class ProductService {
     public List<Product> sortProductsByPrice() {
         List<Product> products = getAllProducts();
         products.sort(Comparator.comparing(Product::getPrice));
+        return products;
+    }
+
+    public List<Product> sortProductsByRating() {
+        List<Product> products = getAllProducts();
+        products.sort(Comparator.comparing(Product::getRating).reversed());
         return products;
     }
 

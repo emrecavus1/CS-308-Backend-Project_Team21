@@ -1,7 +1,7 @@
 package com.cs308.backend.controllers;
 
 import com.cs308.backend.exception.UserAlreadyExistsException;
-import com.cs308.backend.models.User;
+import com.cs308.backend.models.*;
 import com.cs308.backend.repositories.UserRepository;
 import com.cs308.backend.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,12 +21,15 @@ public class AuthController {
 
     private final UserChecks userChecks;
 
+    private final SecureTokenService tokenService;
+
 
     @Autowired
-    public AuthController(UserService userService, UserRepository userRepository, UserChecks userChecks) {
+    public AuthController(UserService userService, UserRepository userRepository, UserChecks userChecks, SecureTokenService tokenService) {
         this.userService = userService;
         this.userRepository = userRepository;
         this.userChecks = userChecks;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/signup")
@@ -42,8 +45,11 @@ public class AuthController {
         if (!passwordError.isEmpty()) errors.add("Password: " + passwordError);
 
         // Name validation
-        String nameError = userChecks.nameChecks(user.getName(), user.getSurname()).getBody();
-        if (!nameError.isEmpty()) errors.add("Name/Surname: " + nameError);
+        String nameError = userChecks.nameChecks(user.getName()).getBody();
+        if (!nameError.isEmpty()) errors.add("Name: " + nameError);
+
+        String surnameError = userChecks.surnameChecks(user.getSurname()).getBody();
+        if (!surnameError.isEmpty()) errors.add("Surname: " + surnameError);
 
         // Role validation
         String roleError = userChecks.roleChecks(user.getRole()).getBody();
@@ -77,26 +83,26 @@ public class AuthController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody User user) {
-        // Find user by email
-        Optional<User> existingUser = userRepository.findByEmail(user.getEmail());
-
-        if (existingUser.isEmpty()) {
-            return ResponseEntity.badRequest().body("Email not registered");
+    public ResponseEntity<Map<String,String>> login(@RequestBody User req) {
+        // 1) authenticate credentials…
+        User user = userService.authenticate(req.getEmail(), req.getPassword());
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        /*if (!userService.isEnabled(existingUser.get().getUserId())) {
-            return ResponseEntity.badRequest().body("Email not verified, please check your email box");
-        } */
-        // Retrieve the user
-        User foundUser = existingUser.get();
+        // 2) generate a token
+        SecureToken tok = tokenService.generateForUser(user.getUserId(), 12);
 
-        // Check if password matches
-        if (!foundUser.getPassword().equals(user.getPassword())) {
-            return ResponseEntity.badRequest().body("Incorrect password");
-        }
-
-
-        return ResponseEntity.ok("Login successful!");
+        // 3) return it in JSON
+        Map<String,String> body = Map.of("token", tok.getToken());
+        return ResponseEntity.ok(body);
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String auth) {
+        String token = auth.replace("Bearer ","");
+        tokenService.removeToken(token);
+        return ResponseEntity.ok().build();
+    }
+
 }
