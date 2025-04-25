@@ -128,10 +128,12 @@ public class MainController {
             if (body != null && (cartId == null || !cartId.equals(body.getCartId()))) {
                 ResponseCookie cookie = ResponseCookie.from("CART_ID", body.getCartId())
                         .httpOnly(true)
+                        .sameSite("Lax")           // <— enforce Lax (so it's sent on top-level navigations & POSTs)
                         .path("/")
                         .maxAge(Duration.ofDays(30))
                         .build();
                 servletResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
             }
         }
 
