@@ -134,6 +134,9 @@ public class OrderService {
     }
 
 
+    public Order getOrderById(String id) {
+        return orderRepository.findById(id).orElse(null);
+    }
 
 
 }
