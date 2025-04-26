@@ -31,14 +31,15 @@ public class OrderController {
     }
 
 
-    @PutMapping
+    @PutMapping("/order")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<String> processPayment(
-            @RequestParam String cartId,
+            @CookieValue("CART_ID") String cartId,
             @RequestParam String cardNumber,
             @RequestParam String expiryDate,
             @RequestParam String cvv,
-            Authentication auth) {
+            Authentication auth
+    ){
 
         // 1) get logged‐in user ID from the security context
         String userId = auth.getName();

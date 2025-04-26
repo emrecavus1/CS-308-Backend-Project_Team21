@@ -126,21 +126,19 @@ public class MainController {
             @RequestParam String productId,
             HttpServletResponse servletResponse
     ) {
-        // delegate to service:
         ResponseEntity<AddToCartResponse> resp = cartService.addToCart(cartId, productId);
 
-        // if the service just created a new cart, set a cookie
         if (resp.getStatusCode().is2xxSuccessful()) {
             AddToCartResponse body = resp.getBody();
             if (body != null && (cartId == null || !cartId.equals(body.getCartId()))) {
                 ResponseCookie cookie = ResponseCookie.from("CART_ID", body.getCartId())
                         .httpOnly(true)
-                        .sameSite("Lax")           // <— enforce Lax (so it's sent on top-level navigations & POSTs)
+                        .sameSite("Lax")
+                        // .secure(true)    ← remove or comment this out for local HTTP
                         .path("/")
                         .maxAge(Duration.ofDays(30))
                         .build();
                 servletResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-
             }
         }
 
@@ -148,13 +146,30 @@ public class MainController {
     }
 
 
+
     @GetMapping("/items")
     public ResponseEntity<List<CartItem>> getCartItems(
-            @RequestParam String cartId) {
+            @CookieValue(value="CART_ID", required=false) String cartId
+    ) {
+        System.out.println("→ getCartItems, received cookie CART_ID=" + cartId);
 
+        if (cartId == null) {
+            // no cart yet → return empty list
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
+        // 1) fetch the items into a local variable
         List<CartItem> items = cartService.getCartItems(cartId);
+
+        // 2) log what you’re about to return
+        System.out.println("→ getCartItems, returning items: " + items);
+
+        // 3) return the same list
         return ResponseEntity.ok(items);
     }
+
+
+
 
     @DeleteMapping("/cart/clear")
     public ResponseEntity<Void> clearCart(@RequestParam String cartId) {

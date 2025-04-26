@@ -1,3 +1,4 @@
+// src/main/java/com/cs308/backend/controllers/InvoiceController.java
 package com.cs308.backend.controllers;
 
 import com.cs308.backend.models.Order;
@@ -7,32 +8,39 @@ import com.cs308.backend.repositories.OrderRepository;
 import com.cs308.backend.repositories.ProductRepository;
 import com.cs308.backend.repositories.UserRepository;
 import com.cs308.backend.util.PdfInvoiceBuilder;
+
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.io.IOException;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/invoices")
+@CrossOrigin(
+        origins = "http://localhost:5173",
+        allowCredentials = "true"
+)
 public class InvoiceController {
 
-    private final OrderRepository orderRepo;
-    private final UserRepository userRepo;
-    private final ProductRepository productRepo;
+    private final OrderRepository   orderRepo;
+    private final UserRepository    userRepo;
+    private final ProductRepository prodRepo;
 
     public InvoiceController(OrderRepository orderRepo,
                              UserRepository userRepo,
-                             ProductRepository productRepo) {
-        this.orderRepo   = orderRepo;
-        this.userRepo    = userRepo;
-        this.productRepo = productRepo;
+                             ProductRepository prodRepo) {
+        this.orderRepo = orderRepo;
+        this.userRepo  = userRepo;
+        this.prodRepo  = prodRepo;
     }
 
     @GetMapping("/{orderId}")
-    public ResponseEntity<byte[]> getInvoicePdf(@PathVariable String orderId) throws IOException {
+    public ResponseEntity<ByteArrayResource> getInvoicePdf(@PathVariable String orderId) throws IOException {
         // 1) load Order and User
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
@@ -40,11 +48,11 @@ public class InvoiceController {
                 .orElseThrow(() -> new IllegalArgumentException("User not found for order: " + orderId));
 
         // 2) load products & quantities
-        List<Product> products   = productRepo.findAllById(order.getProductIds());
+        List<Product> products   = prodRepo.findAllById(order.getProductIds());
         List<Integer> quantities = order.getQuantities();
 
         // 3) build the PDF bytes
-        byte[] pdf = PdfInvoiceBuilder.buildInvoicePdf(
+        byte[] pdfBytes = PdfInvoiceBuilder.buildInvoicePdf(
                 orderId,
                 user,
                 order,
@@ -55,18 +63,23 @@ public class InvoiceController {
                 order.getCvv()
         );
 
-        // 4) set headers so browser will render inline
+        // 4) wrap in a ByteArrayResource
+        ByteArrayResource resource = new ByteArrayResource(pdfBytes);
+
+        // 5) set headers so browser can render inline and know the length
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDisposition(ContentDisposition
-                .inline()
-                .filename("invoice-" + orderId + ".pdf")
-                .build()
+        headers.setContentDisposition(
+                ContentDisposition
+                        .inline()
+                        .filename("invoice-" + orderId + ".pdf")
+                        .build()
         );
+        headers.setContentLength(pdfBytes.length);
 
         return ResponseEntity
                 .ok()
                 .headers(headers)
-                .body(pdf);
+                .body(resource);
     }
 }
