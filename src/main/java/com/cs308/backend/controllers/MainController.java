@@ -32,6 +32,13 @@ public class MainController {
         this.cartService = cartService;
     }
 
+    @GetMapping("/products/{productId}")
+    public ResponseEntity<Product> getProductById(@PathVariable String productId) {
+        return productService.getProductById(productId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/getCategories")
     public ResponseEntity<Map<String, Object>> getCustomerMainPage() {
         List<Category> categories = categoryService.getAllCategories();
