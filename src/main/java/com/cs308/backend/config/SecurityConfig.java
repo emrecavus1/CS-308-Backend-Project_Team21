@@ -2,17 +2,22 @@ package com.cs308.backend.config;
 
 import com.cs308.backend.config.JwtAuthFilter;
 import com.cs308.backend.services.SecureTokenService;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final SecureTokenService tokenService;
@@ -32,21 +37,38 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+
+                        // public endpoints
                         .requestMatchers(
                                 "/api/auth/signup",
                                 "/api/auth/login",
                                 "/api/email/verify/**",
-                                "/api/main/cart/**"        // guest‐cart endpoints
+                                "/api/main/cart/**"
                         ).permitAll()
+
+                        // all the /api/order endpoints you want to protect:
                         .requestMatchers(
-                                "/api/order/**"
+                                HttpMethod.PUT, "/api/order"                         // processPayment
                         ).authenticated()
+                        .requestMatchers(
+                                HttpMethod.GET,  "/api/order/user/**",               // view orders by user
+                                "/api/order/viewPreviousOrders/**",
+                                "/api/order/viewActiveOrders/**",
+                                "/api/order/previous-products/**"
+                        ).authenticated()
+                        .requestMatchers(
+                                HttpMethod.POST, "/api/order/record"
+                        ).authenticated()
+
+                        // everything else under /api/order (like markShipped, cancel, etc.) stays open:
+                        .requestMatchers("/api/order/**").permitAll()
+
+                        // and allow any other URL in your app
                         .anyRequest().permitAll()
                 )
-                // insert your JWT filter before Spring’s UsernamePasswordAuthenticationFilter
+                // insert your JWT filter
                 .addFilterBefore(jwtAuthFilter(),
                         UsernamePasswordAuthenticationFilter.class)
-                // if you still want HTTP Basic on any leftover endpoints
                 .httpBasic(Customizer.withDefaults());
 
         return http.build();
@@ -56,5 +78,5 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
 }
+
