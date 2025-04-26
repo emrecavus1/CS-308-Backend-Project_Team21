@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -82,21 +83,25 @@ public class AuthController {
     }
 
 
+    // in AuthController.java
     @PostMapping("/login")
     public ResponseEntity<Map<String,String>> login(@RequestBody User req) {
-        // 1) authenticate credentials…
         User user = userService.authenticate(req.getEmail(), req.getPassword());
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-
-        // 2) generate a token
         SecureToken tok = tokenService.generateForUser(user.getUserId(), 12);
 
-        // 3) return it in JSON
-        Map<String,String> body = Map.of("token", tok.getToken());
+        Map<String,String> body = Map.of(
+                "token",      tok.getToken(),
+                "userId",     user.getUserId(),
+                "name",       user.getName(),
+                "surname",    user.getSurname()
+        );
         return ResponseEntity.ok(body);
     }
+
+
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestHeader("Authorization") String auth) {

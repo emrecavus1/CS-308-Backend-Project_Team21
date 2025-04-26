@@ -7,7 +7,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 
+
+
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/order")
@@ -93,13 +97,31 @@ public class OrderController {
 
 
     @GetMapping("/viewPreviousOrders/{userId}")
-    public ResponseEntity<List<String>> viewPreviousOrders(@PathVariable String userId) {
-        return orderHistoryService.viewPreviousOrdersByUser(userId);
+    public ResponseEntity<List<Order>> viewPreviousOrders(@PathVariable String userId) {
+        // 1) get the raw list of IDs
+        List<String> ids = orderHistoryService
+                .viewPreviousOrdersByUser(userId)
+                .getBody();
+
+        // 2) look up each Order
+        List<Order> orders = ids.stream()
+                .map(orderService::getOrderById)           // assume you add this helper
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(orders);
     }
 
     @GetMapping("/viewActiveOrders/{userId}")
-    public ResponseEntity<List<String>> viewActiveOrders(@PathVariable String userId) {
-        return orderHistoryService.viewActiveOrdersByUser(userId);
+    public ResponseEntity<List<Order>> viewActiveOrders(@PathVariable String userId) {
+        List<String> ids = orderHistoryService
+                .viewActiveOrdersByUser(userId)
+                .getBody();
+        List<Order> orders = ids.stream()
+                .map(orderService::getOrderById)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(orders);
     }
 
     @GetMapping("/previous-products/{userId}")
