@@ -20,7 +20,6 @@ public class SecureToken extends Auditable {
     @Indexed(unique = true)
     private String token;
 
-    @Indexed(name = "tokenExpiryIndex", expireAfterSeconds = 0)
     private LocalDateTime expiredAt;
 
     @DBRef

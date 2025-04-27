@@ -113,4 +113,7 @@ public class UserService {
         return ResponseEntity.ok(prods);
     }
 
+    public Optional<User> findById(String userId) {
+        return userRepository.findById(userId);
+    }
 }
