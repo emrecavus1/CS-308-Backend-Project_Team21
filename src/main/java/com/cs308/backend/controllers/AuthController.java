@@ -90,7 +90,7 @@ public class AuthController {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        SecureToken tok = tokenService.generateForUser(user.getUserId(), 12);
+        SecureToken tok = tokenService.generateForUser(user.getUserId(), 60);
 
         Map<String,String> body = Map.of(
                 "token",      tok.getToken(),

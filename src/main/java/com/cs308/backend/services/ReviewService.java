@@ -65,6 +65,39 @@ public class ReviewService {
     public List<Review> getVerifiedReviewsForProduct(String productId) {
         return reviewRepository.findByProductIdAndVerifiedTrue(productId);
     }
+
+    public void deleteReview(String reviewId) {
+        // 1) Fetch the review first
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + reviewId));
+
+        // 2) Fetch the associated product
+        Product product = productRepository.findById(review.getProductId())
+                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + review.getProductId()));
+
+        // 3) Remove the review ID from the product's reviewIds list
+        if (product.getReviewIds() != null) {
+            product.getReviewIds().removeIf(id -> id.equals(reviewId));
+        }
+
+        // 4) Save the updated product
+        productRepository.save(product);
+
+        // 5) Delete the review
+        reviewRepository.deleteById(reviewId);
+
+        // 6) Recompute the average rating
+        List<Review> remainingReviews = reviewRepository.findByProductId(product.getProductId());
+        double newAvg = remainingReviews.stream()
+                .mapToDouble(Review::getRating)
+                .average()
+                .orElse(0.0);
+        product.setRating(newAvg);
+
+        // 7) Save product again after rating update
+        productRepository.save(product);
+    }
+
 }
 
 
