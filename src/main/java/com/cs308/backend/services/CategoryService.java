@@ -26,6 +26,15 @@ public class CategoryService {
         return ResponseEntity.ok("Category added successfully!");
     }
 
+
+    public Category findById(String categoryId) {
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() ->
+                        new NoSuchElementException("Category not found with id: " + categoryId)
+                );
+    }
+
+
     public List<Category> getAllCategories() {
         return categoryRepository.findAll();
     }
