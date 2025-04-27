@@ -169,6 +169,13 @@ public class MainController {
     }
 
 
+    @GetMapping("/category/{categoryId}")
+    public ResponseEntity<Category> getCategory(@PathVariable String categoryId) {
+        Category c = categoryService.findById(categoryId);
+        return ResponseEntity.ok(c);
+    }
+
+
 
 
     @DeleteMapping("/cart/clear")
