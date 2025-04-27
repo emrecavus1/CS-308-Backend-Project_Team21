@@ -44,25 +44,23 @@ public class OrderController {
             @RequestParam String cvv,
             Authentication auth
     ){
-
-        // 1) get logged‐in user ID from the security context
         String userId = auth.getName();
-
-        // 2) create an Order from the cart
         String orderId = orderService.createOrderFromCart(cartId, userId);
 
-        // 3) do the actual payment + invoice + stock decrement
         ResponseEntity<String> result = paymentService.processPayment(
                 userId, orderId, cardNumber, expiryDate, cvv);
 
-        // 4) if successful, record in history & clear cart
         if (result.getStatusCode().is2xxSuccessful()) {
             orderHistoryService.recordOrderAndClearCart(userId, orderId);
             cartService.clearCart(cartId);
+
+            // ⭐⭐ Here's the important change:
+            return ResponseEntity.ok(orderId);
         }
 
         return result;
     }
+
 
 
     @PutMapping("/markShipped/{orderId}")

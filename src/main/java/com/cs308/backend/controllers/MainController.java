@@ -237,5 +237,11 @@ public class MainController {
 
 
 
+    @DeleteMapping("/review/{reviewId}")
+    public ResponseEntity<Void> deleteReview(@PathVariable String reviewId) {
+        reviewService.deleteReview(reviewId);
+        return ResponseEntity.noContent().build();
+    }
+
 
 }
