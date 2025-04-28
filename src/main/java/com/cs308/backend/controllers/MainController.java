@@ -1,5 +1,6 @@
 package com.cs308.backend.controllers;
 
+
 import com.cs308.backend.models.*;
 import com.cs308.backend.models.CartItem;
 import com.cs308.backend.repositories.*;
@@ -9,12 +10,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
 import jakarta.servlet.http.HttpServletResponse;
+
 
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpHeaders;
 import java.time.Duration;
 
+
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 @RestController
 @RequestMapping("/api/main")
 public class MainController {
@@ -24,6 +29,7 @@ public class MainController {
     private final ReviewService reviewService;
     private final CartService cartService;
 
+
     public MainController(ProductService productService, CategoryService categoryService, ReviewService reviewService, UserService userService, CartService cartService) {
         this.productService = productService;
         this.categoryService = categoryService;
@@ -32,6 +38,7 @@ public class MainController {
         this.cartService = cartService;
     }
 
+
     @GetMapping("/products/{productId}")
     public ResponseEntity<Product> getProductById(@PathVariable String productId) {
         return productService.getProductById(productId)
@@ -39,28 +46,34 @@ public class MainController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+
     @GetMapping("/getCategories")
     public ResponseEntity<Map<String, Object>> getCustomerMainPage() {
         List<Category> categories = categoryService.getAllCategories();
+
 
         Map<String, Object> response = new HashMap<>();
         response.put("categories", categories);
         return ResponseEntity.ok(response);
     }
 
+
     @GetMapping("/category/{categoryId}/getProductsByCategory")
     public ResponseEntity<Map<String, Object>> getProductsByCategory(@PathVariable String categoryId) {
         List<Product> products = productService.getProductsByCategory(categoryId);
+
 
         Map<String, Object> response = new HashMap<>();
         response.put("products", products);
         return ResponseEntity.ok(response);
     }
 
+
     @PostMapping("/addProduct")
     public ResponseEntity<String> addProduct(
             @RequestBody Product product,
             @RequestParam String categoryName) {
+
 
         // Call the service method with the correct parameters
         ResponseEntity<String> response = productService.addProduct(
@@ -74,8 +87,10 @@ public class MainController {
                 product.getDistributorInfo()
         );
 
+
         return response;
     }
+
 
     @PostMapping("/addCategory")
     public ResponseEntity<String> addCategory(@RequestBody Category category)
@@ -83,11 +98,13 @@ public class MainController {
         return categoryService.addCategory(category, category.getCategoryName());
     }
 
+
     @PutMapping("/updateStock/{productId}/{newStock}")
     public ResponseEntity<Product> updateStock(@PathVariable String productId, @PathVariable int newStock) {
         Product updated = productService.updateStock(productId, newStock);
         return ResponseEntity.ok(updated);
     }
+
 
     @PostMapping("/approveReview/{reviewId}")
     public ResponseEntity<Review> approveReview(@PathVariable String reviewId) {
@@ -95,11 +112,13 @@ public class MainController {
         return ResponseEntity.ok(approved);
     }
 
+
     @PostMapping("/declineReview/{reviewId}")
     public ResponseEntity<Review> declineReview(@PathVariable String reviewId) {
         Review declined = reviewService.declineReview(reviewId);
         return ResponseEntity.ok(declined);
     }
+
 
     @PostMapping("/postReview")
     public ResponseEntity<Review> postReview(@RequestBody Review req) {
@@ -107,17 +126,23 @@ public class MainController {
         return ResponseEntity.ok(saved);
     }
 
+
     @PutMapping("/updatePrice/{productId}/{newPrice}")
     public ResponseEntity<Product> updatePrice(@PathVariable String productId, @PathVariable double newPrice) {
         Product updatedProduct = productService.setPrice(productId, newPrice);
         return ResponseEntity.ok(updatedProduct);
     }
 
+
     @PatchMapping("/updateProduct/{productId}")
     public ResponseEntity<Product> updateProduct(@PathVariable String productId, @RequestBody Map<String, Object> updates) {
         Product updatedProduct = productService.updateProduct(productId, updates);
         return ResponseEntity.ok(updatedProduct);
     }
+
+
+
+
 
 
     @PostMapping("/cart/add")
@@ -127,6 +152,7 @@ public class MainController {
             HttpServletResponse servletResponse
     ) {
         ResponseEntity<AddToCartResponse> resp = cartService.addToCart(cartId, productId);
+
 
         if (resp.getStatusCode().is2xxSuccessful()) {
             AddToCartResponse body = resp.getBody();
@@ -142,8 +168,12 @@ public class MainController {
             }
         }
 
+
         return resp;
     }
+
+
+
 
 
 
@@ -153,20 +183,26 @@ public class MainController {
     ) {
         System.out.println("→ getCartItems, received cookie CART_ID=" + cartId);
 
+
         if (cartId == null) {
             // no cart yet → return empty list
             return ResponseEntity.ok(Collections.emptyList());
         }
 
+
         // 1) fetch the items into a local variable
         List<CartItem> items = cartService.getCartItems(cartId);
+
 
         // 2) log what you’re about to return
         System.out.println("→ getCartItems, returning items: " + items);
 
+
         // 3) return the same list
         return ResponseEntity.ok(items);
     }
+
+
 
 
     @GetMapping("/category/{categoryId}")
@@ -178,11 +214,17 @@ public class MainController {
 
 
 
+
+
+
+
     @DeleteMapping("/cart/clear")
     public ResponseEntity<Void> clearCart(@RequestParam String cartId) {
         cartService.clearCart(cartId);
         return ResponseEntity.noContent().build();
     }
+
+
 
 
     @GetMapping("/search")
@@ -191,17 +233,20 @@ public class MainController {
         return ResponseEntity.ok(products);
     }
 
+
     @GetMapping("/sortProductsByPrice")
     public ResponseEntity<List<Product>> sortProductsByPrice(@RequestParam(defaultValue = "asc") String order) {
         List<Product> sortedProducts = productService.sortProductsByPrice();
         return ResponseEntity.ok(sortedProducts);
     }
 
+
     @GetMapping("/sortProductsByRating")
     public ResponseEntity<List<Product>> sortProductsByRating(@RequestParam(defaultValue = "desc") String order) {
         List<Product> sortedProducts = productService.sortProductsByRating();
         return ResponseEntity.ok(sortedProducts);
     }
+
 
     /** Add a product to this user’s wishlist */
     @PostMapping("/{userId}/wishlist/{productId}")
@@ -211,6 +256,7 @@ public class MainController {
         return userService.addToWishlist(userId, productId);
     }
 
+
     /** Remove a product from this user’s wishlist */
     @DeleteMapping("/{userId}/wishlist/{productId}")
     public ResponseEntity<String> removeFromWishlist(
@@ -219,12 +265,14 @@ public class MainController {
         return userService.removeFromWishlist(userId, productId);
     }
 
+
     /** Get all products in this user’s wishlist */
     @GetMapping("/{userId}/wishlist")
     public ResponseEntity<List<Product>> getWishlist(
             @PathVariable String userId) {
         return userService.getWishlist(userId);
     }
+
 
     @GetMapping("/product/{productId}/verified")
     public ResponseEntity<List<Review>> getVerifiedReviewsForProduct(
@@ -237,11 +285,17 @@ public class MainController {
 
 
 
+
+
+
+
     @DeleteMapping("/review/{reviewId}")
     public ResponseEntity<Void> deleteReview(@PathVariable String reviewId) {
         reviewService.deleteReview(reviewId);
         return ResponseEntity.noContent().build();
     }
+
+
 
 
 }
