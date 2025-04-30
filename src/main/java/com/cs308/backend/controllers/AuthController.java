@@ -110,24 +110,31 @@ public class AuthController {
 
 
 
-    // in AuthController.java
     @PostMapping("/login")
-    public ResponseEntity<Map<String,String>> login(@RequestBody User req) {
+    public ResponseEntity<Map<String, String>> login(@RequestBody User req) {
+        // Authenticate using provided email/password
         User user = userService.authenticate(req.getEmail(), req.getPassword());
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        SecureToken tok = tokenService.generateForUser(user.getUserId(), 60);
 
+        // Generate token
+        SecureToken tok = tokenService.generateForUser(user.getUserId(), 120);
 
-        Map<String,String> body = Map.of(
-                "token",      tok.getToken(),
-                "userId",     user.getUserId(),
-                "name",       user.getName(),
-                "surname",    user.getSurname()
-        );
+        // Prepare response
+        Map<String, String> body = new HashMap<>();
+        body.put("token", tok.getToken());
+        body.put("userId", user.getUserId());
+        body.put("name", user.getName());
+        body.put("surname", user.getSurname());
+        body.put("role", user.getRole());
+        body.put("specificAddress", user.getSpecificAddress());
+        body.put("email", user.getEmail());
+
         return ResponseEntity.ok(body);
     }
+
+
 
 
 
