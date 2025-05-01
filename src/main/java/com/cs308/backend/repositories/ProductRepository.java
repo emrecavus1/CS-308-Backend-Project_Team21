@@ -21,5 +21,8 @@ public interface ProductRepository extends MongoRepository<Product, String> {
             String productName, String productInfo);
 
 
+    // Delete all products by category
+    void deleteByCategoryId(String categoryId);
+
 }
 

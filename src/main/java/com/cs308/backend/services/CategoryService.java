@@ -39,5 +39,13 @@ public class CategoryService {
         return categoryRepository.findAll();
     }
 
+    public void deleteCategory(String categoryId) {
+        if (!categoryRepository.existsById(categoryId)) {
+            throw new NoSuchElementException("Category not found: " + categoryId);
+        }
+        categoryRepository.deleteById(categoryId);
+    }
+
+
 
 }

@@ -282,20 +282,34 @@ public class MainController {
         return ResponseEntity.ok(reviews);
     }
 
-
-
-
-
-
-
-
     @DeleteMapping("/review/{reviewId}")
     public ResponseEntity<Void> deleteReview(@PathVariable String reviewId) {
         reviewService.deleteReview(reviewId);
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/deleteProduct/{productId}")
+    public ResponseEntity<Void> deleteProductWithCleanup(@PathVariable String productId) {
+        productService.deleteProductWithCleanup(productId);
+        return ResponseEntity.noContent().build();
+    }
 
+
+    @DeleteMapping("/deleteCategory/{categoryId}")
+    public ResponseEntity<Void> deleteCategoryWithCleanup(@PathVariable String categoryId) {
+        // 1. Fetch all products in this category
+        List<Product> products = productService.getProductsByCategory(categoryId);
+
+        // 2. Delete each product using the cleanup method
+        for (Product p : products) {
+            productService.deleteProductWithCleanup(p.getProductId());
+        }
+
+        // 3. Now delete the category itself
+        categoryService.deleteCategory(categoryId);
+
+        return ResponseEntity.noContent().build();
+    }
 
 
 }
