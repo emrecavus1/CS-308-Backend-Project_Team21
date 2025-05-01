@@ -11,10 +11,14 @@ import java.util.*;
 public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final UserRepository userRepository;
+    private final ReviewRepository reviewRepository;
 
-    public ProductService(ProductRepository productRepository, CategoryRepository categoryRepository) {
+    public ProductService(ProductRepository productRepository, CategoryRepository categoryRepository, UserRepository userRepository, ReviewRepository reviewRepository) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
+        this.userRepository = userRepository;
+        this.reviewRepository = reviewRepository;
     }
 
     public ResponseEntity<String> addProduct(Product product, String name, String info, String categoryName, int stock, String serialNumber, String warrantyStatus, String distributorInfo) {
@@ -101,14 +105,6 @@ public class ProductService {
     }
 
 
-
-    public void deleteProduct(String productId) {
-        if (!productRepository.existsById(productId)) {
-            throw new NoSuchElementException("Product not found!");
-        }
-        productRepository.deleteById(productId);
-    }
-
     public Product setPrice(String productId, double price) {
         Optional<Product> productOptional = productRepository.findById(productId);
         if (productOptional.isPresent()) {
@@ -194,6 +190,37 @@ public class ProductService {
         List<Product> products = getAllProducts();
         products.sort(Comparator.comparing(Product::getRating).reversed());
         return products;
+    }
+
+    public void deleteProductWithCleanup(String productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new NoSuchElementException("Product not found: " + productId));
+
+        // 1. Remove the product ID from its category
+        Category category = categoryRepository.findById(product.getCategoryId())
+                .orElseThrow(() -> new NoSuchElementException("Category not found for product"));
+        if (category.getProductIds() != null) {
+            category.getProductIds().remove(productId);
+            categoryRepository.save(category);
+        }
+
+        // 2. Delete all associated reviews
+        List<Review> reviews = reviewRepository.findByProductId(productId);
+        for (Review r : reviews) {
+            reviewRepository.deleteById(r.getReviewId());
+        }
+
+        // 3. Remove from all user wishlists
+        List<User> users = userRepository.findAll();
+        for (User u : users) {
+            if (u.getWishList() != null && u.getWishList().contains(productId)) {
+                u.getWishList().remove(productId);
+                userRepository.save(u);
+            }
+        }
+
+        // 4. Delete the product itself
+        productRepository.deleteById(productId);
     }
 
 
