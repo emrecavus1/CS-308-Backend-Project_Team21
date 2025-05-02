@@ -36,6 +36,7 @@ public class ReviewService {
         }
 
 
+        review.setDeclined(false);
         Review saved = reviewRepository.save(review);
 
 
@@ -74,8 +75,21 @@ public class ReviewService {
         return saved;
     }
 
+    public List<Map<String, String>> getPendingCommentsWithUserIds() {
+        List<Review> pending = reviewRepository.findByVerifiedFalseAndDeclinedFalse();
 
-
+        return pending.stream()
+                .filter(r -> r.getComment() != null && !r.getComment().isBlank())
+                .map(r -> {
+                    Map<String, String> result = new HashMap<>();
+                    result.put("userId", r.getUserId());
+                    result.put("comment", r.getComment());
+                    result.put("productId", r.getProductId());  // add product ID
+                    result.put("reviewId", r.getReviewId());  // ✅ restore this
+                    return result;
+                })
+                .toList();
+    }
 
 
 
@@ -90,7 +104,7 @@ public class ReviewService {
     public Review declineReview(String reviewId) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("Review not found"));
-        review.setVerified(false);
+        review.setDeclined(true);
         return reviewRepository.save(review);
     }
 

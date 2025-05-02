@@ -250,6 +250,13 @@ public class MainController {
         return ResponseEntity.ok(sortedProducts);
     }
 
+    @GetMapping("/reviews/pending-comments")
+    public ResponseEntity<List<Map<String, String>>> getPendingCommentsWithUserIds() {
+        List<Map<String, String>> pending = reviewService.getPendingCommentsWithUserIds();
+        return ResponseEntity.ok(pending);
+    }
+
+
 
     /** Add a product to this user’s wishlist */
     @PostMapping("/{userId}/wishlist/{productId}")

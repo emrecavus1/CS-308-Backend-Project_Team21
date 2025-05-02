@@ -73,13 +73,19 @@ public class OrderHistoryService {
     }
 
     public ResponseEntity<List<String>> viewActiveOrdersByUser(String userId) {
-        // find all orders shipped=true
-        List<Order> shippedOrders = orderRepository.findByUserIdAndShippedFalse(userId);
-        List<String> ids = shippedOrders.stream()
+        List<Order> allOrders = orderRepository.findByUserIdAndShippedFalse(userId);
+
+        List<String> activeOrderIds = allOrders.stream()
+                .filter(order -> {
+                    String status = order.getStatus();
+                    return "Processing".equalsIgnoreCase(status) || "In-transit".equalsIgnoreCase(status);
+                })
                 .map(Order::getOrderId)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(ids);
+
+        return ResponseEntity.ok(activeOrderIds);
     }
+
 
     public ResponseEntity<List<Product>> getProductsFromPreviousOrders(String userId) {
         // 1) grab every Order with shipped=true
