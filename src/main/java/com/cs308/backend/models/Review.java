@@ -17,6 +17,7 @@ public class Review {
     private double rating;
     private String comment;
     private boolean verified;
+    private boolean declined;
     private String userId;
     private String productId;
 

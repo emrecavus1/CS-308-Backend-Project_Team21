@@ -16,4 +16,7 @@ public interface ReviewRepository extends MongoRepository<Review, String> {
     List<Review> findByUserId(String userId);
 
     void deleteByProductId(String productId);
+
+    List<Review> findByVerifiedFalseAndDeclinedFalse();
+
 }
