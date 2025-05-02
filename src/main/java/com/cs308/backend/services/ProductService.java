@@ -106,16 +106,19 @@ public class ProductService {
 
 
     public Product setPrice(String productId, double price) {
-        Optional<Product> productOptional = productRepository.findById(productId);
-        if (productOptional.isPresent()) {
-            Product product = productOptional.get();
+        Optional<Product> optionalProduct = productRepository.findById(productId);
+        if (optionalProduct.isPresent()) {
+            Product product = optionalProduct.get();
             product.setPrice(price);
             return productRepository.save(product);
-        }
-        else {
-            throw new NoSuchElementException("Product not found!");
+        } else {
+            Product newProduct = new Product();
+            newProduct.setProductId(productId);
+            newProduct.setPrice(price);
+            return productRepository.save(newProduct); // You may want to populate required fields too
         }
     }
+
 
     public Product setName(String productId, String productName) {
         Optional<Product> productOptional = productRepository.findById(productId);
@@ -176,9 +179,12 @@ public class ProductService {
     }
 
     public List<Product> searchProducts(String query) {
-        return productRepository.findByProductNameContainingIgnoreCaseOrProductInfoContainingIgnoreCase(
-                query, query);
+        return productRepository.findByProductNameContainingIgnoreCaseOrProductInfoContainingIgnoreCase(query, query)
+                .stream()
+                .filter(p -> p.getPrice() > 0)
+                .toList();
     }
+
 
     public List<Product> sortProductsByPrice() {
         List<Product> products = getAllProducts();

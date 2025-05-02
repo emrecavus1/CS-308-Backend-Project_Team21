@@ -68,6 +68,17 @@ public class MainController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/category/{categoryId}/showProductsByCategory")
+    public ResponseEntity<Map<String, Object>> showProductsByCategory(@PathVariable String categoryId) {
+        List<Product> products = productService.getProductsByCategory(categoryId).stream()
+                .filter(p -> p.getPrice() > 0)
+                .toList();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("products", products);
+        return ResponseEntity.ok(response);
+    }
+
 
     @PostMapping("/addProduct")
     public ResponseEntity<String> addProduct(
@@ -143,8 +154,6 @@ public class MainController {
 
 
 
-
-
     @PostMapping("/cart/add")
     public ResponseEntity<AddToCartResponse> addToCart(
             @CookieValue(value="CART_ID", required=false) String cartId,
@@ -210,12 +219,6 @@ public class MainController {
         Category c = categoryService.findById(categoryId);
         return ResponseEntity.ok(c);
     }
-
-
-
-
-
-
 
 
     @DeleteMapping("/cart/clear")
