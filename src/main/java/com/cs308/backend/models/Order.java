@@ -26,4 +26,5 @@ public class Order {
     private String cardNumber;
     private String expiryDate;
     private String cvv;
+    private String invoicePath; // e.g., "invoices/invoice-abc123.pdf"
 }

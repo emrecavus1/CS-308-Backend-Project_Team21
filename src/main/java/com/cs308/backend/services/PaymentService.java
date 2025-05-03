@@ -8,6 +8,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import java.util.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
+
+import com.cs308.backend.util.PdfInvoiceBuilder; // if you use a separate utility class
+
 @Service
 public class PaymentService {
     private final OrderRepository orderRepository;
@@ -97,7 +104,6 @@ public class PaymentService {
         order.setCardNumber(cardNumber);
         order.setExpiryDate(expiryDate);
         order.setCvv(cvv);
-        orderRepository.save(order);
 
         // ← NEW: decrease stock now that the purchase is final
         List<String>  productIds  = order.getProductIds();
@@ -114,9 +120,31 @@ public class PaymentService {
         // Send invoice (wrapped in try/catch as before)
         try {
             invoiceService.emailPdfInvoice(orderId);
+            String filePath = "invoices/invoice-" + orderId + ".pdf";
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+            byte[] pdfBytes = PdfInvoiceBuilder.buildInvoicePdf(
+                    orderId,
+                    user,
+                    order,
+                    productRepository.findAllById(productIds),
+                    quantities,
+                    cardNumber,
+                    expiryDate,
+                    cvv
+            );
+            Files.createDirectories(Paths.get("invoices")); // Create directory if it doesn't exist
+            Files.write(Paths.get(filePath), pdfBytes);
+
+            // 2️⃣ Save path to order
+            order.setInvoicePath(filePath);
         } catch (Exception e) {
             throw new IllegalStateException("Payment succeeded but failed to send invoice", e);
         }
+
+        orderRepository.save(order);
 
         return ResponseEntity.ok("Payment processed, stock updated & invoice emailed!");
     }
