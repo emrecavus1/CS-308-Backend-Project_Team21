@@ -51,7 +51,7 @@ public class SecurityConfig {
                                 HttpMethod.PUT, "/api/order"                         // processPayment
                         ).authenticated()
                         .requestMatchers(
-                                HttpMethod.GET,  "/api/order/user/**",               // view orders by user
+                                HttpMethod.GET,
                                 "/api/order/viewPreviousOrders/**",
                                 "/api/order/viewActiveOrders/**",
                                 "/api/order/previous-products/**"

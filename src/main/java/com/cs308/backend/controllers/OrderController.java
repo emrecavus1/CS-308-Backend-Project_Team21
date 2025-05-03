@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Objects;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/order")
@@ -74,10 +75,23 @@ public class OrderController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Order>> getOrdersByUser(@PathVariable String userId) {
+    public ResponseEntity<List<Map<String, Object>>> getOrdersByUser(@PathVariable String userId) {
         List<Order> orders = orderService.getOrdersByUser(userId);
-        return ResponseEntity.ok(orders);
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Order o : orders) {
+            if ("cancelled".equalsIgnoreCase(o.getStatus())) continue;  // ✅ Skip cancelled orders
+
+            Map<String, Object> map = new HashMap<>();
+            map.put("orderId", o.getOrderId());
+            map.put("status", o.getStatus());
+            map.put("shipped", o.isShipped());
+            result.add(map);
+        }
+
+        return ResponseEntity.ok(result);
     }
+
 
     // --- NEW ENDPOINTS FOR ORDER HISTORY ---
 

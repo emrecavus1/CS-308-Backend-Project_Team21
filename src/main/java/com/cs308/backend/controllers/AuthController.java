@@ -156,5 +156,19 @@ public class AuthController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/all-users")
+    public ResponseEntity<List<Map<String, String>>> getAllUsers() {
+        List<User> users = userRepository.findAll();
+        List<Map<String, String>> result = new ArrayList<>();
+        for (User u : users) {
+            Map<String, String> entry = new HashMap<>();
+            entry.put("userId", u.getUserId());
+            entry.put("name", u.getName());
+            entry.put("surname", u.getSurname());
+            result.add(entry);
+        }
+        return ResponseEntity.ok(result);
+    }
+
 
 }

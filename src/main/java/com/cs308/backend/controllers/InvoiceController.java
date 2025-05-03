@@ -17,7 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/invoices")
@@ -82,4 +82,32 @@ public class InvoiceController {
                 .headers(headers)
                 .body(resource);
     }
+
+    @GetMapping("/user/{userId}/invoices")
+    public ResponseEntity<List<Map<String, String>>> getInvoicesByUser(@PathVariable String userId) {
+        List<Order> orders = orderRepo.findByUserId(userId).stream()
+                .filter(Order::isPaid)
+                .filter(o -> o.getInvoicePath() != null)
+                .toList();
+
+        Optional<User> userOpt = userRepo.findById(userId);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        User u = userOpt.get();
+
+        List<Map<String, String>> result = new ArrayList<>();
+        for (Order o : orders) {
+            Map<String, String> entry = new HashMap<>();
+            entry.put("orderId", o.getOrderId());
+            entry.put("userName", u.getName() + " " + u.getSurname());
+            entry.put("invoicePath", o.getInvoicePath());
+            result.add(entry);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+
+
 }
