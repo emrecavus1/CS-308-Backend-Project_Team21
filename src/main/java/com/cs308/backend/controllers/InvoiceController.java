@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @RestController
@@ -30,6 +31,7 @@ public class InvoiceController {
     private final OrderRepository   orderRepo;
     private final UserRepository    userRepo;
     private final ProductRepository prodRepo;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public InvoiceController(OrderRepository orderRepo,
                              UserRepository userRepo,
@@ -102,12 +104,17 @@ public class InvoiceController {
             entry.put("orderId", o.getOrderId());
             entry.put("userName", u.getName() + " " + u.getSurname());
             entry.put("invoicePath", o.getInvoicePath());
+
+            // Add the invoice sent date if available
+            if (o.getInvoiceSentDate() != null) {
+                entry.put("invoiceSentDate", o.getInvoiceSentDate().format(DATE_FORMATTER));
+            } else {
+                entry.put("invoiceSentDate", "Not sent yet");
+            }
+
             result.add(entry);
         }
 
         return ResponseEntity.ok(result);
     }
-
-
-
 }

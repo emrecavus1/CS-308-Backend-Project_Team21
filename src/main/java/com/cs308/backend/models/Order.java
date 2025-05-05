@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.*;
+import java.time.LocalDateTime;
 
 import com.cs308.backend.models.*;
 @Data
@@ -27,4 +28,5 @@ public class Order {
     private String expiryDate;
     private String cvv;
     private String invoicePath; // e.g., "invoices/invoice-abc123.pdf"
+    private LocalDateTime invoiceSentDate; // New field to store when the invoice was sent
 }
