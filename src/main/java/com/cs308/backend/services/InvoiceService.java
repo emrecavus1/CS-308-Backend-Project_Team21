@@ -15,6 +15,7 @@ import org.springframework.core.io.ByteArrayResource;
 
 import jakarta.mail.internet.MimeMessage;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -76,6 +77,10 @@ public class InvoiceService {
                 "application/pdf"
         );
         mailSender.send(msg);
+
+        // 6) Record the invoice sent date and time
+        order.setInvoiceSentDate(LocalDateTime.now());
+        orderRepo.save(order);
     }
 
 }
