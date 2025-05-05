@@ -76,8 +76,12 @@ public class ProductService {
         // 1) generate your own ID:
         product.setProductId(UUID.randomUUID().toString());
 
-
         product.setDistributorInfo(distributorInfo);
+
+        // Set default production cost if not manually specified
+        if (product.getProductionCost() == null) {
+            product.setProductionCost(product.getPrice() * 0.5);
+        }
 
         Product savedProduct = productRepository.save(product);
         category.getProductIds().add(savedProduct.getProductId()); // Add the newly created product's ID
@@ -119,12 +123,66 @@ public class ProductService {
         if (optionalProduct.isPresent()) {
             Product product = optionalProduct.get();
             product.setPrice(price);
+
+            // Update production cost if it was using the default value (50% of price)
+            // Check if production cost is null or if it was exactly 50% of the old price
+            if (product.getProductionCost() == null ||
+                    Math.abs(product.getProductionCost() - (product.getPrice() * 0.5)) < 0.01) {
+                product.setProductionCost(price * 0.5);
+            }
+
             return productRepository.save(product);
         } else {
             Product newProduct = new Product();
             newProduct.setProductId(productId);
             newProduct.setPrice(price);
-            return productRepository.save(newProduct); // You may want to populate required fields too
+            // Set default production cost for new product
+            newProduct.setProductionCost(price * 0.5);
+            return productRepository.save(newProduct);
+        }
+    }
+
+    // New method to set production cost manually
+    public Product setProductionCost(String productId, double productionCost) {
+        Optional<Product> optionalProduct = productRepository.findById(productId);
+        if (optionalProduct.isPresent()) {
+            Product product = optionalProduct.get();
+
+            // Validate production cost (optional: add your business rules here)
+            if (productionCost < 0) {
+                throw new IllegalArgumentException("Production cost cannot be negative");
+            }
+
+            product.setProductionCost(productionCost);
+            return productRepository.save(product);
+        } else {
+            throw new NoSuchElementException("Product not found with ID: " + productId);
+        }
+    }
+
+    // New method to reset production cost to default (50% of price)
+    public Product resetProductionCostToDefault(String productId) {
+        Optional<Product> optionalProduct = productRepository.findById(productId);
+        if (optionalProduct.isPresent()) {
+            Product product = optionalProduct.get();
+            product.setProductionCost(product.getPrice() * 0.5);
+            return productRepository.save(product);
+        } else {
+            throw new NoSuchElementException("Product not found with ID: " + productId);
+        }
+    }
+
+    // New method to get production cost
+    public double getProductionCost(String productId) {
+        Optional<Product> optionalProduct = productRepository.findById(productId);
+        if (optionalProduct.isPresent()) {
+            Product product = optionalProduct.get();
+            if (product.getProductionCost() == null) {
+                return product.getPrice() * 0.5; // Return default if not set
+            }
+            return product.getProductionCost();
+        } else {
+            throw new NoSuchElementException("Product not found with ID: " + productId);
         }
     }
 
@@ -159,8 +217,25 @@ public class ProductService {
 
             // Update price if provided
             if (updates.containsKey("price")) {
-                // Convert the value to a double. Adjust as needed if your client sends a different type.
-                product.setPrice(Double.parseDouble(updates.get("price").toString()));
+                double oldPrice = product.getPrice();
+                double newPrice = Double.parseDouble(updates.get("price").toString());
+                product.setPrice(newPrice);
+
+                // Update production cost if it was using the default value (50% of price)
+                // Check if production cost is null or if it was exactly 50% of the old price
+                if (product.getProductionCost() == null ||
+                        Math.abs(product.getProductionCost() - (oldPrice * 0.5)) < 0.01) {
+                    product.setProductionCost(newPrice * 0.5);
+                }
+            }
+
+            // Update production cost if provided
+            if (updates.containsKey("productionCost")) {
+                double productionCost = Double.parseDouble(updates.get("productionCost").toString());
+                if (productionCost < 0) {
+                    throw new IllegalArgumentException("Production cost cannot be negative");
+                }
+                product.setProductionCost(productionCost);
             }
 
             // Update stock count if provided
@@ -204,6 +279,27 @@ public class ProductService {
     public List<Product> sortProductsByRating() {
         List<Product> products = getAllProducts();
         products.sort(Comparator.comparing(Product::getRating).reversed());
+        return products;
+    }
+
+    // New method to sort products by profit margin (price - production cost)
+    public List<Product> sortProductsByProfitMargin() {
+        List<Product> products = getAllProducts();
+        products.sort(Comparator.comparing((Product p) -> {
+            double productionCost = p.getProductionCost() != null ? p.getProductionCost() : p.getPrice() * 0.5;
+            return p.getPrice() - productionCost;
+        }).reversed());
+        return products;
+    }
+
+    // New method to sort products by profit margin percentage
+    public List<Product> sortProductsByProfitMarginPercentage() {
+        List<Product> products = getAllProducts();
+        products.sort(Comparator.comparing((Product p) -> {
+            double productionCost = p.getProductionCost() != null ? p.getProductionCost() : p.getPrice() * 0.5;
+            if (productionCost == 0) return Double.MAX_VALUE; // Avoid division by zero
+            return (p.getPrice() - productionCost) / productionCost;
+        }).reversed());
         return products;
     }
 
@@ -342,6 +438,4 @@ public class ProductService {
             throw new NoSuchElementException("Product not found with ID: " + productId);
         }
     }
-
-
 }

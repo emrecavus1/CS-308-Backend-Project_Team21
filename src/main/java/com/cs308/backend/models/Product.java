@@ -31,6 +31,9 @@ public class Product {
     private String warrantyStatus;
     private String distributorInfo;
 
+    // Production cost field with default value calculation handled in service layer
+    private Double productionCost;
+
     // New discount fields
     private double discountPercentage;
     private boolean discountActive;
@@ -46,5 +49,10 @@ public class Product {
             }
         }
         return price;
+    }
+
+    // Helper method to calculate default production cost (50% of price)
+    public double getDefaultProductionCost() {
+        return price * 0.5;
     }
 }

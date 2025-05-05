@@ -321,5 +321,23 @@ public class MainController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Update the production cost of a product
+     */
+    @PutMapping("/updateProductionCost/{productId}/{productionCost}")
+    public ResponseEntity<Product> updateProductionCost(@PathVariable String productId, @PathVariable double productionCost) {
+        Product updatedProduct = productService.setProductionCost(productId, productionCost);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
+    /**
+     * Reset the production cost to default value (50% of price)
+     */
+    @PostMapping("/resetProductionCost/{productId}")
+    public ResponseEntity<Product> resetProductionCost(@PathVariable String productId) {
+        Product updatedProduct = productService.resetProductionCostToDefault(productId);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
 
 }
