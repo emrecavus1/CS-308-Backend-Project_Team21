@@ -20,6 +20,9 @@ import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDateTime;
+
 @RestController
 @RequestMapping("/api/invoices")
 @CrossOrigin(
@@ -110,6 +113,63 @@ public class InvoiceController {
                 entry.put("invoiceSentDate", o.getInvoiceSentDate().format(DATE_FORMATTER));
             } else {
                 entry.put("invoiceSentDate", "Not sent yet");
+            }
+
+            result.add(entry);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+
+    @GetMapping("/date-range")
+    public ResponseEntity<List<Map<String, String>>> getInvoicesByDateRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+
+        // Find all orders that have been paid and have an invoice path
+        List<Order> allInvoicedOrders = orderRepo.findByPaidIsTrueAndInvoicePathIsNotNull();
+
+        // Filter orders by date range
+        List<Order> ordersInRange = allInvoicedOrders.stream()
+                .filter(order -> order.getInvoiceSentDate() != null)
+                .filter(order -> !order.getInvoiceSentDate().isBefore(startDate) &&
+                        !order.getInvoiceSentDate().isAfter(endDate))
+                .toList();
+
+        // Transform orders to response format
+        List<Map<String, String>> result = new ArrayList<>();
+        for (Order order : ordersInRange) {
+            Map<String, String> entry = new HashMap<>();
+            entry.put("orderId", order.getOrderId());
+
+            // Fetch user info
+            try {
+                User user = userRepo.findById(order.getUserId())
+                        .orElseThrow(() -> new IllegalArgumentException("User not found: " + order.getUserId()));
+                entry.put("userName", user.getName() + " " + user.getSurname());
+            } catch (Exception e) {
+                entry.put("userName", "Unknown");
+            }
+
+            entry.put("invoicePath", order.getInvoicePath());
+
+            if (order.getInvoiceSentDate() != null) {
+                entry.put("invoiceSentDate", order.getInvoiceSentDate().format(DATE_FORMATTER));
+            } else {
+                entry.put("invoiceSentDate", "Not sent yet");
+            }
+
+            // Add total amount from the order if available
+            double totalAmount = 0.0;
+            if (order.getProductIds() != null && order.getQuantities() != null) {
+                List<Product> products = prodRepo.findAllById(order.getProductIds());
+                for (int i = 0; i < products.size(); i++) {
+                    if (i < order.getQuantities().size()) {
+                        totalAmount += products.get(i).getCurrentPrice() * order.getQuantities().get(i);
+                    }
+                }
+                entry.put("totalAmount", String.format("%.2f", totalAmount));
             }
 
             result.add(entry);
