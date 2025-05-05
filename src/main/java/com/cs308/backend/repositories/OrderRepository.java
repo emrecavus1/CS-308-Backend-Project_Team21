@@ -30,4 +30,6 @@ public interface OrderRepository extends MongoRepository<Order, String>
     List<Order> findByUserIdAndShippedTrue(String userId);
 
     List<Order> findByUserIdAndShippedFalse(String userId);
+
+    List<Order> findByPaidIsTrueAndInvoicePathIsNotNull();
 }
