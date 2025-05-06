@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Special Discount Notification</title>
@@ -68,11 +68,11 @@
     <h1>Special Discount Just For You!</h1>
 </div>
 
-<p>Hello <span th:text="${userName}">User</span>,</p>
+<p>Hello <span th:text="${name}">User</span>,</p>
 
 <p>We noticed you have <strong th:text="${productName}">Product</strong> in your wishlist, and we're excited to let you know it's now on sale!</p>
 
-<div class="discount-badge" th:text="${discountPercentage} + '% OFF'">20% OFF</div>
+<div class="discount-badge" th:text="${discountPercentage + '% OFF'}">20% OFF</div>
 
 <div class="product-info">
     <h2 th:text="${productName}">Product Name</h2>

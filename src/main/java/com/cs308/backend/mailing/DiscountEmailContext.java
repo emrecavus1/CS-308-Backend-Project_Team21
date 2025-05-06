@@ -32,34 +32,32 @@ public class DiscountEmailContext extends AbstractEmailContext {
         }
 
         // Set the template location regardless of the context type
-        setTemplateLocation("email-templates/discount-notification");
+        setTemplateLocation("discount-notification");
+
     }
 
     // Keep our custom initialization method but rename it to avoid confusion
-    public void initWithDetails(String userName, String productName, double discountPercentage,
+    public void initWithDetails(String name, String productName, double discountPercentage,
                                 double originalPrice, double discountedPrice, String productId) {
-        // Set predefined context variables
         Map<String, Object> contextMap = new HashMap<>();
-        contextMap.put("userName", userName);
+        contextMap.put("name", name);  // changed from "userName" to match the template
         contextMap.put("productName", productName);
         contextMap.put("discountPercentage", discountPercentage);
         contextMap.put("originalPrice", originalPrice);
         contextMap.put("discountedPrice", discountedPrice);
         contextMap.put("productId", productId);
 
-        // Use the generic init method to set the context
         init(contextMap);
+        setSubject("Special Discount on Your Wishlist Item: " + productName);
 
-        // Store values for later use if needed
+        // Optionally update internal state if needed later
         this.productName = productName;
         this.discountPercentage = discountPercentage;
         this.originalPrice = originalPrice;
         this.discountedPrice = discountedPrice;
         this.productId = productId;
-
-        // Set subject (already set in init() but we do it again to be safe)
-        setSubject("Special Discount on Your Wishlist Item: " + productName);
     }
+
 
     // Getters for the properties
     public String getProductName() {

@@ -51,6 +51,12 @@ public class DefaultEmailService implements EmailService {
         mimeMessageHelper.setFrom(email.getFrom());
         mimeMessageHelper.setText(emailContent, true); // 'true' indicates HTML content
 
+        System.out.println("🔔 Sending email to: " + email.getTo());
+        System.out.println("Subject: " + email.getSubject());
+        System.out.println("From: " + email.getFrom());
+        System.out.println("Context: " + email.getContext());
+
+
         // Send the email
         emailSender.send(message);
     }
