@@ -340,4 +340,11 @@ public class MainController {
     }
 
 
+    @GetMapping("/products/new")
+    public ResponseEntity<List<Product>> getNewProducts() {
+        List<Product> newProducts = productService.getNewProducts();
+        return ResponseEntity.ok(newProducts);
+    }
+
+
 }

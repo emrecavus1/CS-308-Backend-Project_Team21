@@ -334,52 +334,51 @@ public class ProductService {
         productRepository.deleteById(productId);
     }
 
-    public Product setDiscount(String productId, double discountPercentage, Date startDate, Date endDate) {
+    public Product setDiscount(String productId, double discountPercentage) {
         Optional<Product> productOptional = productRepository.findById(productId);
         if (productOptional.isPresent()) {
             Product product = productOptional.get();
 
-            // Validate discount percentage
             if (discountPercentage <= 0 || discountPercentage > 99) {
                 throw new IllegalArgumentException("Discount percentage must be between 1 and 99");
             }
 
-            // Validate dates
-            if (startDate.after(endDate)) {
-                throw new IllegalArgumentException("Start date must be before end date");
-            }
+            double discountedPrice = product.getPrice() * (1 - discountPercentage / 100);
+            product.setPrice(discountedPrice);
 
-            // Set discount fields
-            product.setDiscountPercentage(discountPercentage);
-            product.setDiscountActive(true);
-            product.setDiscountStartDate(startDate);
-            product.setDiscountEndDate(endDate);
-
-            // Save the updated product
             return productRepository.save(product);
         } else {
             throw new NoSuchElementException("Product not found with ID: " + productId);
         }
     }
 
-    public int notifyUsersAboutDiscount(String productId, double discountPercentage) {
-        // Get product details
+    public Map<String, Object> setDiscountAndNotifyUsers(String productId, double discountPercentage) {
+        // Step 1: Fetch product before modifying
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new NoSuchElementException("Product not found with ID: " + productId));
 
-        // Find users who have this product in their wishlist
-        List<User> users = userRepository.findByWishListContains(productId);
-
-        int notifiedCount = 0;
-
-        // Calculate discounted price
         double originalPrice = product.getPrice();
         double discountedPrice = originalPrice * (1 - discountPercentage / 100);
 
-        // Send notification to each user
+        // Step 2: Update and save discounted product
+        product.setPrice(discountedPrice);
+        Product updated = productRepository.save(product);
+
+        // Step 3: Pass the original price manually
+        int notifiedUsers = notifyUsersAboutDiscount(product, discountPercentage, originalPrice);
+
+        return Map.of("product", updated, "notifiedUsers", notifiedUsers);
+    }
+
+
+    public int notifyUsersAboutDiscount(Product product, double discountPercentage, double originalPrice) {
+        List<User> users = userRepository.findByWishListContains(product.getProductId());
+
+        double discountedPrice = product.getPrice();
+        int notified = 0;
+
         for (User user : users) {
             try {
-                // Change it to:
                 DiscountEmailContext emailContext = new DiscountEmailContext();
                 emailContext.initWithDetails(
                         user.getName(),
@@ -387,55 +386,36 @@ public class ProductService {
                         discountPercentage,
                         originalPrice,
                         discountedPrice,
-                        productId
+                        product.getProductId()
                 );
-
-                // Set sender and recipient
                 emailContext.setFrom("noreply@yourstore.com");
                 emailContext.setTo(user.getEmail());
 
-                // Send the email
                 emailService.sendMail(emailContext);
-                notifiedCount++;
-            } catch (MessagingException e) {
-                // Log the error but continue processing other users
-                System.err.println("Failed to send email to user " + user.getEmail() + ": " + e.getMessage());
+                notified++;
+            } catch (Exception e) {
+                System.err.println("❌ Failed to notify " + user.getEmail() + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
-        return notifiedCount;
+        return notified;
     }
 
-    public Map<String, Object> setDiscountAndNotifyUsers(String productId, double discountPercentage, Date startDate, Date endDate) {
-        // Set the discount
-        Product updatedProduct = setDiscount(productId, discountPercentage, startDate, endDate);
-
-        // Notify users who have this product in their wishlist
-        int notifiedUsers = notifyUsersAboutDiscount(productId, discountPercentage);
-
-        // Return both the updated product and number of notified users
-        Map<String, Object> result = new HashMap<>();
-        result.put("product", updatedProduct);
-        result.put("notifiedUsers", notifiedUsers);
-
-        return result;
-    }
 
     public Product removeDiscount(String productId) {
-        Optional<Product> productOptional = productRepository.findById(productId);
-        if (productOptional.isPresent()) {
-            Product product = productOptional.get();
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new NoSuchElementException("Product not found with ID: " + productId));
 
-            // Remove discount
-            product.setDiscountActive(false);
-            product.setDiscountPercentage(0);
-            product.setDiscountStartDate(null);
-            product.setDiscountEndDate(null);
-
-            // Save the updated product
-            return productRepository.save(product);
-        } else {
-            throw new NoSuchElementException("Product not found with ID: " + productId);
-        }
+        throw new UnsupportedOperationException("Original price tracking has been removed. Cannot 'remove' discount without restoring original.");
     }
+
+
+    public List<Product> getNewProducts() {
+        return productRepository.findAll()
+                .stream()
+                .filter(p -> p.getPrice() == 0.0)
+                .toList();
+    }
+
 }

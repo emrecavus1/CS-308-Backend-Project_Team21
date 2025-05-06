@@ -166,7 +166,7 @@ public class InvoiceController {
                 List<Product> products = prodRepo.findAllById(order.getProductIds());
                 for (int i = 0; i < products.size(); i++) {
                     if (i < order.getQuantities().size()) {
-                        totalAmount += products.get(i).getCurrentPrice() * order.getQuantities().get(i);
+                        totalAmount += products.get(i).getPrice() * order.getQuantities().get(i);
                     }
                 }
                 entry.put("totalAmount", String.format("%.2f", totalAmount));

@@ -35,21 +35,6 @@ public class Product {
     private Double productionCost;
 
     // New discount fields
-    private double discountPercentage;
-    private boolean discountActive;
-    private Date discountStartDate;
-    private Date discountEndDate;
-
-    // Helper method to get the current price (with discount applied if active)
-    public double getCurrentPrice() {
-        if (discountActive && discountStartDate != null && discountEndDate != null) {
-            Date now = new Date();
-            if (now.after(discountStartDate) && now.before(discountEndDate)) {
-                return price * (1 - discountPercentage / 100);
-            }
-        }
-        return price;
-    }
 
     // Helper method to calculate default production cost (50% of price)
     public double getDefaultProductionCost() {
