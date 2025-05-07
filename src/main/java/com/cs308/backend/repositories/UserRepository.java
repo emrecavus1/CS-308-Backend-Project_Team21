@@ -10,4 +10,5 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     // Add this new method to find users who have a specific product in their wishlist
     List<User> findByWishListContains(String productId);
+
 }

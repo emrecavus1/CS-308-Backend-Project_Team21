@@ -24,9 +24,11 @@ public class Order {
     private List<Integer> quantities = new ArrayList<>();
     private boolean paid;
     private boolean shipped;
+    private boolean refundRequested;
     private String cardNumber;
     private String expiryDate;
     private String cvv;
     private String invoicePath; // e.g., "invoices/invoice-abc123.pdf"
     private LocalDateTime invoiceSentDate; // New field to store when the invoice was sent
+    private List<Double> prices = new ArrayList<>();
 }
