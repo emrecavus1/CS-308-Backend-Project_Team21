@@ -12,6 +12,7 @@ import com.cs308.backend.repositories.*;
 import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -115,5 +116,11 @@ public class UserService {
 
     public Optional<User> findById(String userId) {
         return userRepository.findById(userId);
+    }
+    public String getEmailByUserId(String userId) {
+        return userRepository.findById(userId)
+                .map(User::getEmail)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("No user with ID " + userId));
     }
 }

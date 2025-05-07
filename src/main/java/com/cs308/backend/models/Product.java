@@ -6,9 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;
-import java.util.Date;
-
-import com.cs308.backend.models.*;
 
 
 @Data
@@ -40,4 +37,6 @@ public class Product {
     public double getDefaultProductionCost() {
         return price * 0.5;
     }
+    public int getStock() { return stockCount; }
+    public void setStock(int stockCount) { this.stockCount = this.stockCount; }
 }

@@ -8,7 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 
 
-
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Objects;
@@ -22,6 +22,7 @@ public class OrderController {
     private final OrderService orderService;
     private final PaymentService paymentService;
     private final OrderHistoryService orderHistoryService;
+
 
     public OrderController(UserService userService,
                            CartService cartService,
@@ -109,7 +110,7 @@ public class OrderController {
 
 
     @GetMapping("/viewPreviousOrders/{userId}")
-    public ResponseEntity<List<Order>> viewPreviousOrders(@PathVariable String userId) {
+    public ResponseEntity<List<Order>> viewPreviousOrders(@PathVariable String userId, @RequestParam (required = false) Boolean refundable) {
         // 1) get the raw list of IDs
         List<String> ids = orderHistoryService
                 .viewPreviousOrdersByUser(userId)
@@ -117,8 +118,24 @@ public class OrderController {
 
         // 2) look up each Order
         List<Order> orders = ids.stream()
-                .map(orderService::getOrderById)           // assume you add this helper
+                .map(orderService::getOrderById)           // your helper to fetch full Order
                 .filter(Objects::nonNull)
+                .filter(o -> {
+                    // if no refundable flag (or false), keep everything
+                    if (!Boolean.TRUE.equals(refundable)) {
+                        return true;
+                    }
+                    // otherwise only keep orders that:
+                    //  • invoiced within last 30 days
+                    //  • have been shipped & delivered
+                    //  • haven’t already had a refund requested
+                    LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
+                    return o.getInvoiceSentDate() != null
+                            && o.getInvoiceSentDate().isAfter(cutoff)
+                            && o.isShipped()
+                            && "Delivered".equalsIgnoreCase(o.getStatus())
+                            && !o.isRefundRequested();
+                })
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(orders);
@@ -165,4 +182,14 @@ public class OrderController {
         return ResponseEntity.ok("Order cancelled and removed from history successfully.");
     }
 
+    @PutMapping("/requestRefund/{orderId}")
+    public ResponseEntity<String> requestRefund(
+            @PathVariable String orderId,
+            @RequestParam List<String> productIds,
+            @RequestParam List<String> quantities,
+            Authentication auth
+    ) {
+        String userId = auth.getName();
+        return orderService.requestRefund(orderId, userId, productIds,quantities);
+    }
 }

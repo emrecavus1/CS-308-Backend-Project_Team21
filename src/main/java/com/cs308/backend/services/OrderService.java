@@ -3,10 +3,15 @@ package com.cs308.backend.services;
 import com.cs308.backend.models.*;
 import com.cs308.backend.repositories.*;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
@@ -14,14 +19,23 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
-    private final OrderHistoryRepository orderHistoryRepository;
+    @Autowired
+    private OrderHistoryRepository orderHistoryRepository;
+    private RefundRequestRepository refundRequestRepository = null;
+    private final UserService userService;
+    private final JavaMailSender mailSender;
 
-    public OrderService(OrderRepository orderRepository, CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository, OrderHistoryRepository orderHistoryRepository) {
+    public OrderService(OrderRepository orderRepository, CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository, OrderHistoryRepository orderHistoryRepositoryRefundRequestRepository,
+                        RefundRequestRepository refundRequestRepository, UserService userService,
+                        JavaMailSender mailSender) {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
+        this.refundRequestRepository = refundRequestRepository;
+        this.userService = userService;
         this.orderHistoryRepository = orderHistoryRepository;
+        this.mailSender = mailSender;
     }
 
     public List<Order> getOrdersByUser(String userId) {
@@ -85,6 +99,15 @@ public class OrderService {
                 .map(CartItem::getQuantity)
                 .toList();
 
+        // ← insert here: capture the price _at time of purchase_
+        List<Double> prices = items.stream()
+                .map(ci -> productRepository.findById(ci.getProductId())
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Product not found: " + ci.getProductId()))
+                        .getPrice()
+                )
+                .toList();
+
         Order o = new Order();
         o.setOrderId(UUID.randomUUID().toString());
         o.setCartId(cartId);
@@ -94,6 +117,7 @@ public class OrderService {
         o.setShipped(false);
         o.setProductIds(productIds);
         o.setQuantities(quantities);
+        o.setPrices(prices);
 
         orderRepository.save(o);
 
@@ -132,6 +156,183 @@ public class OrderService {
 
         return ResponseEntity.ok("Order cancelled successfully.");
     }
+
+
+    public ResponseEntity<String> requestRefund(
+            String orderId,
+            String userId,
+            List<String> productIds,
+            List<String> quantities
+    ) {
+        // 1) Load the order
+        var opt = orderRepository.findById(orderId);
+        if (opt.isEmpty()) {
+            return ResponseEntity.badRequest().body("Order not found.");
+        }
+        Order order = opt.get();
+
+        // 1a) Enforce 30-day refund window
+        LocalDateTime now = LocalDateTime.now();
+        if (order.getInvoiceSentDate() == null ||
+                order.getInvoiceSentDate().isBefore(now.minusDays(30))) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Refund period has expired: you can only refund within 30 days of purchase.");
+        }
+
+        // 2) Ownership & delivered-status checks
+        if (!order.getUserId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("You may only request refunds on your own orders.");
+        }
+        if (!order.isShipped() ||
+                !"Delivered".equalsIgnoreCase(order.getStatus())) {
+            return ResponseEntity.badRequest()
+                    .body("Can only refund delivered orders. Current status: " + order.getStatus());
+        }
+
+        // 3) Sanity-check the lists
+        if (productIds.size() != quantities.size()) {
+            return ResponseEntity.badRequest()
+                    .body("productIds and quantities must have the same number of entries.");
+        }
+        if (productIds.isEmpty()) {
+            return ResponseEntity.badRequest().body("No items selected for refund.");
+        }
+
+        // 4) Validate each requested item
+        List<RefundItem> items = new ArrayList<>();
+        for (int i = 0; i < productIds.size(); i++) {
+            String pid = productIds.get(i);
+            int qty = Integer.parseInt(quantities.get(i));
+
+            int idx = order.getProductIds().indexOf(pid);
+            if (idx < 0) {
+                return ResponseEntity.badRequest()
+                        .body("Product " + pid + " not found in order.");
+            }
+            int origQty = order.getQuantities().get(idx);
+            if (qty < 1 || qty > origQty) {
+                return ResponseEntity.badRequest()
+                        .body("Invalid quantity for product " + pid + ". Max allowed: " + origQty);
+            }
+
+            double priceAtPurchase = order.getPrices().get(idx);
+
+
+            Product p = productRepository.findById(pid)
+                    .orElseThrow(() -> new IllegalStateException("Product not found: " + pid));
+            items.add(new RefundItem(pid, qty, priceAtPurchase));
+        }
+
+        // 5) Mark the order and save
+        order.setRefundRequested(true);
+        orderRepository.save(order);
+
+        // 6) Persist the selective refund request
+        RefundRequest rr = new RefundRequest(
+                UUID.randomUUID().toString(),
+                order.getOrderId(),
+                userId,
+                LocalDateTime.now(),
+                false,
+                items
+        );
+        refundRequestRepository.save(rr);
+
+        return ResponseEntity.ok("Refund requested successfully.");
+    }
+
+
+    public List<RefundRequest> getAllRefundRequests() {
+        return refundRequestRepository.findAll();
+    }
+
+    public List<RefundRequest> getRefundRequestsByProcessed(boolean processed) {
+        return refundRequestRepository.findByProcessed(processed);
+    }
+
+    public ResponseEntity<String> markRefundProcessed(String requestId) {
+        Optional<RefundRequest> opt = refundRequestRepository.findById(requestId);
+        if (opt.isEmpty()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Refund request not found: " + requestId);
+        }
+        RefundRequest rr = opt.get();
+        if (rr.isProcessed()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Refund request already processed.");
+        }
+        rr.setProcessed(true);
+        refundRequestRepository.save(rr);
+        return ResponseEntity
+                .ok("Refund request marked as processed.");
+    }
+
+    public ResponseEntity<String> approveRefund(String requestId) {
+        var opt = refundRequestRepository.findById(requestId);
+        if (opt.isEmpty()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Refund request not found: " + requestId);
+        }
+        RefundRequest rr = opt.get();
+        if (rr.isProcessed()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Refund request already handled.");
+        }
+
+        // 1) Restock & sum with double
+        double totalAmount = 0.0;
+        for (RefundItem item : rr.getItems()) {
+            Product p = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Product not found: " + item.getProductId()));
+            p.setStock(p.getStock() + item.getQuantity());
+            productRepository.save(p);
+
+            totalAmount += item.getPrice() * item.getQuantity();
+        }
+
+        // 2) Mark processed
+        rr.setProcessed(true);
+        refundRequestRepository.save(rr);
+
+        // 3) Notify customer
+        String email = userService.getEmailByUserId(rr.getUserId());
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setTo(email);
+        msg.setSubject("Your refund has been approved");
+        msg.setText(String.format(
+                "Hello,\n\nYour refund request for order %s has been approved.%n" +
+                        "Total refunded amount: %.2f%n\nThank you.",
+                rr.getOrderId(), totalAmount
+        ));
+        mailSender.send(msg);
+
+        refundRequestRepository.deleteById(requestId);
+
+        return ResponseEntity.ok("Refund approved, customer notified, request removed.");
+    }
+
+    public ResponseEntity<String> rejectRefund(String requestId) {
+        // 1) Load the RefundRequest
+        Optional<RefundRequest> opt = refundRequestRepository.findById(requestId);
+        if (opt.isEmpty()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Refund request not found: " + requestId);
+        }
+        else {
+            refundRequestRepository.deleteById(requestId);
+
+            return ResponseEntity.ok("Refund request rejected and removed.");
+        }
+    }
+
 
 
     public Order getOrderById(String id) {
