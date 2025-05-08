@@ -418,4 +418,32 @@ public class ProductService {
                 .toList();
     }
 
+    public int patchMissingProductionCosts() {
+        List<Product> all = productRepository.findAll();
+        int patched = 0;
+
+        for (Product p : all) {
+            if (p.getProductionCost() == null) {
+                p.setProductionCost(p.getPrice() * 0.5);
+                productRepository.save(p);
+                patched++;
+            }
+        }
+
+        return patched;
+    }
+
+
+    public Product setPriceExplicit(String productId, double price) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new NoSuchElementException("Product not found: " + productId));
+
+        product.setPrice(price);
+        product.setProductionCost(price * 0.5); // Always reset to 50%
+        return productRepository.save(product);
+    }
+
+
+
+
 }

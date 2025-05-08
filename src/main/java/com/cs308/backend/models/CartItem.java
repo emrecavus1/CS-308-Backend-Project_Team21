@@ -15,4 +15,7 @@ public class CartItem {
     private String productId;
     /** How many of that product the user wants */
     private int quantity;
+
+    private double price;
+
 }

@@ -61,8 +61,8 @@ public class OrderServiceTest {
         testCart.setUserId(userId);
 
         List<CartItem> cartItems = new ArrayList<>();
-        cartItems.add(new CartItem(UUID.randomUUID().toString(), 2));
-        cartItems.add(new CartItem(UUID.randomUUID().toString(), 1));
+        cartItems.add(new CartItem(UUID.randomUUID().toString(), 2, 99.99));
+        cartItems.add(new CartItem(UUID.randomUUID().toString(), 1, 49.99));
         testCart.setItems(cartItems);
 
         // Setup test order

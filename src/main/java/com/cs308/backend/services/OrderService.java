@@ -105,11 +105,7 @@ public class OrderService {
 
         // ← insert here: capture the price _at time of purchase_
         List<Double> prices = items.stream()
-                .map(ci -> productRepository.findById(ci.getProductId())
-                        .orElseThrow(() -> new IllegalStateException(
-                                "Product not found: " + ci.getProductId()))
-                        .getPrice()
-                )
+                .map(CartItem::getPrice)
                 .toList();
 
         Order o = new Order();
@@ -162,84 +158,6 @@ public class OrderService {
     }
 
 
-    public ResponseEntity<String> requestRefund(
-            String orderId,
-            String userId,
-            List<String> productIds,
-            List<String> quantities
-    ) {
-        System.out.println("→ productIds: " + productIds);
-        System.out.println("→ quantities: " + quantities);
-
-        if (productIds == null || quantities == null || productIds.isEmpty()) {
-            return ResponseEntity.badRequest().body("No items selected for refund.");
-        }
-        if (productIds.size() != quantities.size()) {
-            return ResponseEntity.badRequest().body("Mismatch between productIds and quantities.");
-        }
-
-        // Load order
-        var opt = orderRepository.findById(orderId);
-        if (opt.isEmpty()) {
-            return ResponseEntity.badRequest().body("Order not found.");
-        }
-        Order order = opt.get();
-
-        // Check refund window
-        LocalDateTime now = LocalDateTime.now();
-        if (order.getInvoiceSentDate() == null || order.getInvoiceSentDate().isBefore(now.minusDays(30))) {
-            return ResponseEntity.badRequest().body("Refund period has expired.");
-        }
-
-        // Check ownership and delivery status
-        if (!order.getUserId().equals(userId)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You may only refund your own orders.");
-        }
-        if (!order.isShipped() || !"Delivered".equalsIgnoreCase(order.getStatus())) {
-            return ResponseEntity.badRequest().body("Can only refund delivered orders.");
-        }
-
-        // Validate items
-        List<RefundItem> items = new ArrayList<>();
-        for (int i = 0; i < productIds.size(); i++) {
-            String pid = productIds.get(i);
-            int qty;
-            try {
-                qty = Integer.parseInt(quantities.get(i));
-            } catch (NumberFormatException e) {
-                return ResponseEntity.badRequest().body("Invalid quantity format: " + quantities.get(i));
-            }
-
-            int idx = order.getProductIds().indexOf(pid);
-            if (idx < 0) return ResponseEntity.badRequest().body("Product not in order: " + pid);
-
-            int origQty = order.getQuantities().get(idx);
-            if (qty < 1 || qty > origQty) {
-                return ResponseEntity.badRequest().body("Invalid quantity for product " + pid);
-            }
-
-            double price = order.getPrices().get(idx);
-            items.add(new RefundItem(pid, qty, price));
-        }
-
-        // Save refund
-        order.setRefundRequested(true);
-        orderRepository.save(order);
-
-        refundRequestRepository.save(new RefundRequest(
-                UUID.randomUUID().toString(),
-                order.getOrderId(),
-                userId,
-                now,
-                false,
-                items
-        ));
-
-        return ResponseEntity.ok("Refund requested successfully.");
-    }
-
-
-
     public List<RefundRequest> getAllRefundRequests() {
         return refundRequestRepository.findAll();
     }
@@ -274,6 +192,7 @@ public class OrderService {
                     .badRequest()
                     .body("Refund request not found: " + requestId);
         }
+
         RefundRequest rr = opt.get();
         if (rr.isProcessed()) {
             return ResponseEntity
@@ -281,23 +200,36 @@ public class OrderService {
                     .body("Refund request already handled.");
         }
 
-        // 1) Restock & sum with double
         double totalAmount = 0.0;
         for (RefundItem item : rr.getItems()) {
             Product p = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new IllegalStateException(
                             "Product not found: " + item.getProductId()));
-            p.setStock(p.getStock() + item.getQuantity());
+            p.setStockCount(p.getStockCount() + item.getQuantity());  // ✅ correct setter
             productRepository.save(p);
-
             totalAmount += item.getPrice() * item.getQuantity();
         }
 
-        // 2) Mark processed
+        // ✅ Also update the order status
+        Order order = orderRepository.findById(rr.getOrderId())
+                .orElseThrow(() -> new IllegalStateException("Order not found: " + rr.getOrderId()));
+        order.setStatus("Refunded");
+        orderRepository.save(order);
+
+        // ✅ Remove the order from order history
+        orderHistoryRepository.findByUserId(rr.getUserId()).ifPresent(history -> {
+            history.getOrderIds().remove(rr.getOrderId());
+            orderHistoryRepository.save(history);
+        });
+
+// ✅ Remove refunded product(s) from the recommendations logic (optional: you can filter them out dynamically instead of removing)
+
+
+        // ✅ Mark processed & remove request
         rr.setProcessed(true);
         refundRequestRepository.save(rr);
 
-        // 3) Notify customer
+        // ✅ Send email
         String email = userService.getEmailByUserId(rr.getUserId());
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setTo(email);
@@ -313,6 +245,7 @@ public class OrderService {
 
         return ResponseEntity.ok("Refund approved, customer notified, request removed.");
     }
+
 
     public ResponseEntity<String> rejectRefund(String requestId) {
         // 1) Load the RefundRequest
@@ -385,11 +318,10 @@ public class OrderService {
                 return ResponseEntity.badRequest().body("Invalid quantity for refund.");
             }
 
-            double price = productRepository.findById(productId)
-                    .map(Product::getPrice)
-                    .orElse(0.0); // or throw an error if you prefer strict handling
+            // ✅ Use stored price at time of purchase
+            double storedPrice = order.getPrices().get(idx);
 
-            RefundItem item = new RefundItem(productId, quantity, price);
+            RefundItem item = new RefundItem(productId, quantity, storedPrice);
 
             order.setRefundRequested(true);
             orderRepository.save(order);
@@ -406,11 +338,60 @@ public class OrderService {
 
             return ResponseEntity.ok("Refund request submitted.");
         } catch (Exception e) {
-            e.printStackTrace(); // log full error to console
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error: " + e.getMessage());
+            e.printStackTrace(); // logs full error to backend
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Unexpected error: " + e.getMessage());
         }
     }
 
+
+    public void patchMissingOrderPrices() {
+        List<Order> allOrders = orderRepository.findAll();
+
+        for (Order o : allOrders) {
+            List<Double> prices = o.getPrices();
+
+            // Skip if already filled
+            if (prices != null && !prices.isEmpty()) continue;
+
+            List<String> productIds = o.getProductIds();
+            if (productIds == null || productIds.isEmpty()) continue;
+
+            List<Double> filledPrices = new ArrayList<>();
+
+            boolean skip = false;
+            for (String pid : productIds) {
+                Optional<Product> prodOpt = productRepository.findById(pid);
+                if (prodOpt.isEmpty()) {
+                    System.err.println("⚠️ Missing product " + pid + " in order " + o.getOrderId());
+                    skip = true;
+                    break;
+                }
+                filledPrices.add(prodOpt.get().getPrice());
+            }
+
+            if (!skip) {
+                o.setPrices(filledPrices);
+                orderRepository.save(o);
+                System.out.println("✅ Patched prices for order " + o.getOrderId());
+            }
+        }
+    }
+
+
+
+    public void patchDeliveredRefundedOrders() {
+        List<Order> delivered = orderRepository.findByStatusIgnoreCase("Delivered");
+        for (Order o : delivered) {
+            boolean hasRefund = refundRequestRepository.findByOrderId(o.getOrderId())
+                    .stream().anyMatch(RefundRequest::isProcessed);
+            if (hasRefund) {
+                o.setStatus("Refunded");
+                orderRepository.save(o);
+                System.out.println("🔁 Patched refunded-delivered order: " + o.getOrderId());
+            }
+        }
+    }
 
 
 

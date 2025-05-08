@@ -217,5 +217,34 @@ public class OrderController {
         return ResponseEntity.ok("Invoice dates patched.");
     }
 
+    @GetMapping("/refundRequests/active")
+    public ResponseEntity<List<RefundRequest>> getActiveRefundRequests() {
+        List<RefundRequest> activeRequests = orderService.getRefundRequestsByProcessed(false);
+        return ResponseEntity.ok(activeRequests);
+    }
+
+
+
+    @GetMapping("/patchMissingPrices")
+    public ResponseEntity<String> patchMissingOrderPrices() {
+        orderService.patchMissingOrderPrices();
+        return ResponseEntity.ok("Patched missing prices in orders.");
+    }
+
+
+    @PutMapping("/refund/approve/{requestId}")
+    public ResponseEntity<String> approveRefund(@PathVariable String requestId) {
+        return orderService.approveRefund(requestId);
+    }
+
+    @GetMapping("/patchDeliveredRefunded")
+    public ResponseEntity<String> patchDeliveredRefunded() {
+        orderService.patchDeliveredRefundedOrders();
+        return ResponseEntity.ok("Patched all refunded orders that were still marked as 'Delivered'.");
+    }
+
+
+
+
 
 }
