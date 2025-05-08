@@ -48,9 +48,6 @@ public class SecurityConfig {
 
                         // all the /api/order endpoints you want to protect:
                         .requestMatchers(
-                                HttpMethod.PUT, "/api/order"                         // processPayment
-                        ).authenticated()
-                        .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/order/viewPreviousOrders/**",
                                 "/api/order/viewActiveOrders/**",
@@ -62,6 +59,11 @@ public class SecurityConfig {
 
                         // everything else under /api/order (like markShipped, cancel, etc.) stays open:
                         .requestMatchers("/api/order/**").permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.PUT, "/api/order",                         // processPayment
+                                "/api/order/requestRefund/**"
+                        ).authenticated()
 
                         // and allow any other URL in your app
                         .anyRequest().permitAll()
