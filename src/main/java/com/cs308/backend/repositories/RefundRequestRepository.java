@@ -9,4 +9,11 @@ import java.util.List;
 @Repository
 public interface RefundRequestRepository extends MongoRepository<RefundRequest, String> {
     List<RefundRequest> findByProcessed(boolean processed);
+
+    // To support refund filtering by orderId
+    List<RefundRequest> findByOrderId(String orderId);
+
+    // To support filtering refund requests by user
+    List<RefundRequest> findByUserId(String userId);
+
 }

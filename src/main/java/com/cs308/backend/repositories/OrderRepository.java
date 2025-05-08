@@ -32,4 +32,8 @@ public interface OrderRepository extends MongoRepository<Order, String>
     List<Order> findByUserIdAndShippedFalse(String userId);
 
     List<Order> findByPaidIsTrueAndInvoicePathIsNotNull();
+
+    // Case-insensitive version of status filter
+    List<Order> findByStatusIgnoreCase(String status);
+
 }

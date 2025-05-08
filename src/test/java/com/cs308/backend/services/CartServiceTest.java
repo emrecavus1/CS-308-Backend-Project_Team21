@@ -81,7 +81,7 @@ public class CartServiceTest {
     @Test
     public void testAddToCart_ExistingItem_IncreasesQuantity() {
         // Arrange
-        CartItem existingItem = new CartItem(testProduct.getProductId(), 1);
+        CartItem existingItem = new CartItem(testProduct.getProductId(), 1, testProduct.getPrice());
         testCart.getItems().add(existingItem);
 
         when(productRepository.findById(testProduct.getProductId())).thenReturn(Optional.of(testProduct));
@@ -123,7 +123,7 @@ public class CartServiceTest {
     @Test
     public void testClearCart_Successful() {
         // Arrange
-        CartItem item = new CartItem(testProduct.getProductId(), 2);
+        CartItem item = new CartItem(testProduct.getProductId(), 2, testProduct.getPrice());
         testCart.getItems().add(item);
 
         when(cartRepository.findById(cartId)).thenReturn(Optional.of(testCart));
@@ -140,7 +140,7 @@ public class CartServiceTest {
     @Test
     public void testGetCartItems_ReturnsItems() {
         // Arrange
-        CartItem item = new CartItem(testProduct.getProductId(), 2);
+        CartItem item = new CartItem(testProduct.getProductId(), 2, testProduct.getPrice());
         testCart.getItems().add(item);
 
         when(cartRepository.findById(cartId)).thenReturn(Optional.of(testCart));

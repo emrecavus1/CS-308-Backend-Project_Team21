@@ -347,4 +347,18 @@ public class MainController {
     }
 
 
+    @GetMapping("/patchMissingProductionCosts")
+    public ResponseEntity<String> patchMissingProductionCosts() {
+        int patchedCount = productService.patchMissingProductionCosts();
+        return ResponseEntity.ok("✅ Patched " + patchedCount + " products with missing production costs.");
+    }
+
+    @PutMapping("/setPrice/{productId}/{price}")
+    public ResponseEntity<Product> setPriceExplicit(@PathVariable String productId, @PathVariable double price) {
+        Product updated = productService.setPriceExplicit(productId, price);
+        return ResponseEntity.ok(updated);
+    }
+
+
+
 }

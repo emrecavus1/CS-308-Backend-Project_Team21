@@ -59,8 +59,13 @@ public class CartService {
             // 5) commit to cart
             if (match != null) {
                 match.setQuantity(newQty);
+                if (match.getPrice() == 0.0) {
+                    match.setPrice(p.getPrice());
+                }
             } else {
-                items.add(new CartItem(productId, 1));
+                // Inside the else block in addToCart method:
+                items.add(new CartItem(productId, 1, p.getPrice()));
+
             }
             cart.setItems(items);
             cartRepository.save(cart);

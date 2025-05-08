@@ -15,15 +15,18 @@ public class OrderHistoryService {
     private final CartRepository cartRepository;
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final RefundRequestRepository refundRequestRepository;
 
     public OrderHistoryService(OrderHistoryRepository orderHistoryRepository,
                                CartRepository cartRepository,
                                OrderRepository orderRepository,
-                               ProductRepository productRepository) {
+                               ProductRepository productRepository,
+                               RefundRequestRepository refundRequestRepository) {
         this.orderHistoryRepository = orderHistoryRepository;
         this.cartRepository   = cartRepository;
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
+        this.refundRequestRepository = refundRequestRepository;
     }
 
     /**
@@ -64,13 +67,17 @@ public class OrderHistoryService {
     }
 
     public ResponseEntity<List<String>> viewPreviousOrdersByUser(String userId) {
-        // find all orders shipped=true
+        // Only include shipped + not refunded orders
         List<Order> shippedOrders = orderRepository.findByUserIdAndShippedTrue(userId);
+
         List<String> ids = shippedOrders.stream()
+                .filter(o -> !"Refunded".equalsIgnoreCase(o.getStatus()))  // ✅ exclude refunded
                 .map(Order::getOrderId)
                 .collect(Collectors.toList());
+
         return ResponseEntity.ok(ids);
     }
+
 
     public ResponseEntity<List<String>> viewActiveOrdersByUser(String userId) {
         List<Order> allOrders = orderRepository.findByUserIdAndShippedFalse(userId);
@@ -88,24 +95,29 @@ public class OrderHistoryService {
 
 
     public ResponseEntity<List<Product>> getProductsFromPreviousOrders(String userId) {
-        // 1) grab every Order with shipped=true
-        List<Order> delivered = orderRepository.findByUserIdAndShippedTrue(userId);
+        // 1) Get all shipped=true orders for the user
+        List<Order> deliveredOrders = orderRepository.findByUserIdAndShippedTrue(userId);
 
-        // 2) flatten all their productIds into one big list (and dedupe)
-        List<String> allIds = delivered.stream()
-                .flatMap(o -> o.getProductIds().stream())
-                .distinct()
+        // 2) Filter out refunded orders
+        List<Order> nonRefundedOrders = deliveredOrders.stream()
+                .filter(order -> !"Refunded".equalsIgnoreCase(order.getStatus()))
                 .collect(Collectors.toList());
 
-        // 3) if nothing found, 404
-        if (allIds.isEmpty()) {
+        // 3) Collect all productIds from non-refunded orders
+        Set<String> productIds = nonRefundedOrders.stream()
+                .flatMap(order -> order.getProductIds().stream())
+                .collect(Collectors.toSet());
+
+        // 4) If empty, return 404
+        if (productIds.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
-        // 4) load the Products and return
-        List<Product> prods = productRepository.findAllById(allIds);
-        return ResponseEntity.ok(prods);
+        // 5) Load and return the products
+        List<Product> products = productRepository.findAllById(productIds);
+        return ResponseEntity.ok(products);
     }
+
 
     public ResponseEntity<String> removeOrderFromHistory(String userId, String orderId) {
         // Find the user's order history
