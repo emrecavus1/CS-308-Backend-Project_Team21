@@ -7,6 +7,7 @@ import com.cs308.backend.services.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import java.util.*;
+import java.time.LocalDateTime;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,6 +15,8 @@ import java.nio.file.Paths;
 import java.nio.file.Path;
 
 import com.cs308.backend.util.PdfInvoiceBuilder; // if you use a separate utility class
+import com.cs308.backend.util.MongoIdUtils;
+
 
 @Service
 public class PaymentService {
@@ -23,14 +26,16 @@ public class PaymentService {
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final InvoiceService invoiceService;
+    private final OrderService orderService;
 
-    public PaymentService(OrderRepository orderRepository, CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository, PaymentRepository paymentRepository, InvoiceService invoiceService) {
+    public PaymentService(OrderRepository orderRepository, CartRepository cartRepository, UserRepository userRepository, ProductRepository productRepository, PaymentRepository paymentRepository, InvoiceService invoiceService, OrderService orderService) {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
         this.paymentRepository = paymentRepository;
         this.invoiceService = invoiceService;
+        this.orderService = orderService;
     }
 
     private boolean isCardExpired(String expiryDate) {
@@ -143,6 +148,12 @@ public class PaymentService {
         } catch (Exception e) {
             throw new IllegalStateException("Payment succeeded but failed to send invoice", e);
         }
+
+        if (order.getInvoiceSentDate() == null) {
+            //order.setInvoiceSentDate(MongoIdUtils.extractTimestampFromObjectId(order.getOrderId()));
+            order.setInvoiceSentDate(LocalDateTime.now());
+        }
+
 
         orderRepository.save(order);
 

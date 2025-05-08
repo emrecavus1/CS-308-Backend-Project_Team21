@@ -9,6 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
+import com.cs308.backend.util.MongoIdUtils;
+
+import org.bson.types.ObjectId;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -37,6 +40,7 @@ public class OrderService {
         this.orderHistoryRepository = orderHistoryRepository;
         this.mailSender = mailSender;
     }
+
 
     public List<Order> getOrdersByUser(String userId) {
         return orderRepository.findByUserId(userId);
@@ -164,84 +168,76 @@ public class OrderService {
             List<String> productIds,
             List<String> quantities
     ) {
-        // 1) Load the order
+        System.out.println("→ productIds: " + productIds);
+        System.out.println("→ quantities: " + quantities);
+
+        if (productIds == null || quantities == null || productIds.isEmpty()) {
+            return ResponseEntity.badRequest().body("No items selected for refund.");
+        }
+        if (productIds.size() != quantities.size()) {
+            return ResponseEntity.badRequest().body("Mismatch between productIds and quantities.");
+        }
+
+        // Load order
         var opt = orderRepository.findById(orderId);
         if (opt.isEmpty()) {
             return ResponseEntity.badRequest().body("Order not found.");
         }
         Order order = opt.get();
 
-        // 1a) Enforce 30-day refund window
+        // Check refund window
         LocalDateTime now = LocalDateTime.now();
-        if (order.getInvoiceSentDate() == null ||
-                order.getInvoiceSentDate().isBefore(now.minusDays(30))) {
-            return ResponseEntity
-                    .badRequest()
-                    .body("Refund period has expired: you can only refund within 30 days of purchase.");
+        if (order.getInvoiceSentDate() == null || order.getInvoiceSentDate().isBefore(now.minusDays(30))) {
+            return ResponseEntity.badRequest().body("Refund period has expired.");
         }
 
-        // 2) Ownership & delivered-status checks
+        // Check ownership and delivery status
         if (!order.getUserId().equals(userId)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("You may only request refunds on your own orders.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You may only refund your own orders.");
         }
-        if (!order.isShipped() ||
-                !"Delivered".equalsIgnoreCase(order.getStatus())) {
-            return ResponseEntity.badRequest()
-                    .body("Can only refund delivered orders. Current status: " + order.getStatus());
+        if (!order.isShipped() || !"Delivered".equalsIgnoreCase(order.getStatus())) {
+            return ResponseEntity.badRequest().body("Can only refund delivered orders.");
         }
 
-        // 3) Sanity-check the lists
-        if (productIds.size() != quantities.size()) {
-            return ResponseEntity.badRequest()
-                    .body("productIds and quantities must have the same number of entries.");
-        }
-        if (productIds.isEmpty()) {
-            return ResponseEntity.badRequest().body("No items selected for refund.");
-        }
-
-        // 4) Validate each requested item
+        // Validate items
         List<RefundItem> items = new ArrayList<>();
         for (int i = 0; i < productIds.size(); i++) {
             String pid = productIds.get(i);
-            int qty = Integer.parseInt(quantities.get(i));
+            int qty;
+            try {
+                qty = Integer.parseInt(quantities.get(i));
+            } catch (NumberFormatException e) {
+                return ResponseEntity.badRequest().body("Invalid quantity format: " + quantities.get(i));
+            }
 
             int idx = order.getProductIds().indexOf(pid);
-            if (idx < 0) {
-                return ResponseEntity.badRequest()
-                        .body("Product " + pid + " not found in order.");
-            }
+            if (idx < 0) return ResponseEntity.badRequest().body("Product not in order: " + pid);
+
             int origQty = order.getQuantities().get(idx);
             if (qty < 1 || qty > origQty) {
-                return ResponseEntity.badRequest()
-                        .body("Invalid quantity for product " + pid + ". Max allowed: " + origQty);
+                return ResponseEntity.badRequest().body("Invalid quantity for product " + pid);
             }
 
-            double priceAtPurchase = order.getPrices().get(idx);
-
-
-            Product p = productRepository.findById(pid)
-                    .orElseThrow(() -> new IllegalStateException("Product not found: " + pid));
-            items.add(new RefundItem(pid, qty, priceAtPurchase));
+            double price = order.getPrices().get(idx);
+            items.add(new RefundItem(pid, qty, price));
         }
 
-        // 5) Mark the order and save
+        // Save refund
         order.setRefundRequested(true);
         orderRepository.save(order);
 
-        // 6) Persist the selective refund request
-        RefundRequest rr = new RefundRequest(
+        refundRequestRepository.save(new RefundRequest(
                 UUID.randomUUID().toString(),
                 order.getOrderId(),
                 userId,
-                LocalDateTime.now(),
+                now,
                 false,
                 items
-        );
-        refundRequestRepository.save(rr);
+        ));
 
         return ResponseEntity.ok("Refund requested successfully.");
     }
+
 
 
     public List<RefundRequest> getAllRefundRequests() {
@@ -332,6 +328,89 @@ public class OrderService {
             return ResponseEntity.ok("Refund request rejected and removed.");
         }
     }
+
+    public void patchMissingInvoiceDates() {
+        List<Order> allOrders = orderRepository.findAll();
+
+        for (Order o : allOrders) {
+            if (o.getInvoiceSentDate() == null && o.isShipped() && "Delivered".equalsIgnoreCase(o.getStatus())) {
+                LocalDateTime generatedTime;
+
+                try {
+                    // Try parsing as Mongo ObjectId
+                    generatedTime = MongoIdUtils.extractTimestampFromObjectId(o.getOrderId());
+                } catch (Exception e) {
+                    // Fallback to now if UUID or invalid ObjectId
+                    generatedTime = LocalDateTime.now();
+                    System.err.println("⚠️ Couldn't parse ObjectId for order " + o.getOrderId() + ", using now() instead.");
+                }
+
+                o.setInvoiceSentDate(generatedTime);
+                orderRepository.save(o);
+                System.out.println("✅ Patched invoiceSentDate for order " + o.getOrderId() + " → " + generatedTime);
+            }
+        }
+    }
+
+
+    public ResponseEntity<String> requestRefundSingle(
+            String orderId,
+            String userId,
+            String productId,
+            String quantityStr
+    ) {
+        try {
+            int quantity = Integer.parseInt(quantityStr);
+
+            Optional<Order> opt = orderRepository.findById(orderId);
+            if (opt.isEmpty()) return ResponseEntity.badRequest().body("Order not found.");
+            Order order = opt.get();
+
+            if (!order.getUserId().equals(userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Unauthorized refund attempt.");
+            }
+
+            if (order.getInvoiceSentDate() == null || order.getInvoiceSentDate().isBefore(LocalDateTime.now().minusDays(30))) {
+                return ResponseEntity.badRequest().body("Refund window expired.");
+            }
+
+            if (!order.isShipped() || !"Delivered".equalsIgnoreCase(order.getStatus())) {
+                return ResponseEntity.badRequest().body("Refunds allowed only for delivered orders.");
+            }
+
+            int idx = order.getProductIds().indexOf(productId);
+            if (idx == -1) return ResponseEntity.badRequest().body("Product not found in order.");
+            int origQty = order.getQuantities().get(idx);
+            if (quantity < 1 || quantity > origQty) {
+                return ResponseEntity.badRequest().body("Invalid quantity for refund.");
+            }
+
+            double price = productRepository.findById(productId)
+                    .map(Product::getPrice)
+                    .orElse(0.0); // or throw an error if you prefer strict handling
+
+            RefundItem item = new RefundItem(productId, quantity, price);
+
+            order.setRefundRequested(true);
+            orderRepository.save(order);
+
+            RefundRequest rr = new RefundRequest(
+                    UUID.randomUUID().toString(),
+                    orderId,
+                    userId,
+                    LocalDateTime.now(),
+                    false,
+                    List.of(item)
+            );
+            refundRequestRepository.save(rr);
+
+            return ResponseEntity.ok("Refund request submitted.");
+        } catch (Exception e) {
+            e.printStackTrace(); // log full error to console
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error: " + e.getMessage());
+        }
+    }
+
 
 
 

@@ -110,36 +110,53 @@ public class OrderController {
 
 
     @GetMapping("/viewPreviousOrders/{userId}")
-    public ResponseEntity<List<Order>> viewPreviousOrders(@PathVariable String userId, @RequestParam (required = false) Boolean refundable) {
-        // 1) get the raw list of IDs
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Order>> viewPreviousOrders(
+            @PathVariable String userId,
+            @RequestParam(required = false) Boolean refundable) {
+
         List<String> ids = orderHistoryService
                 .viewPreviousOrdersByUser(userId)
                 .getBody();
 
-        // 2) look up each Order
+        if (ids == null) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
+
         List<Order> orders = ids.stream()
-                .map(orderService::getOrderById)           // your helper to fetch full Order
+                .map(orderService::getOrderById)
                 .filter(Objects::nonNull)
-                .filter(o -> {
-                    // if no refundable flag (or false), keep everything
+                .filter(order -> {
                     if (!Boolean.TRUE.equals(refundable)) {
-                        return true;
+                        return true; // No filtering if refundable flag is not true
                     }
-                    // otherwise only keep orders that:
-                    //  • invoiced within last 30 days
-                    //  • have been shipped & delivered
-                    //  • haven’t already had a refund requested
-                    LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
-                    return o.getInvoiceSentDate() != null
-                            && o.getInvoiceSentDate().isAfter(cutoff)
-                            && o.isShipped()
-                            && "Delivered".equalsIgnoreCase(o.getStatus())
-                            && !o.isRefundRequested();
+
+                    boolean validInvoiceDate = order.getInvoiceSentDate() != null &&
+                            order.getInvoiceSentDate().isAfter(cutoff);
+                    boolean isShipped = order.isShipped();
+                    boolean isDelivered = "Delivered".equalsIgnoreCase(order.getStatus());
+                    boolean notRefunded = !order.isRefundRequested();
+
+                    boolean isRefundable = validInvoiceDate && isShipped && isDelivered && notRefunded;
+
+                    if (!isRefundable) {
+                        System.out.println("❌ Excluding order: " + order.getOrderId());
+                        System.out.println("   - invoiceSentDate: " + order.getInvoiceSentDate());
+                        System.out.println("   - validInvoiceDate: " + validInvoiceDate);
+                        System.out.println("   - isShipped: " + isShipped);
+                        System.out.println("   - isDelivered: " + isDelivered);
+                        System.out.println("   - isRefundRequested: " + order.isRefundRequested());
+                    }
+
+                    return isRefundable;
                 })
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(orders);
     }
+
 
     @GetMapping("/viewActiveOrders/{userId}")
     public ResponseEntity<List<Order>> viewActiveOrders(@PathVariable String userId) {
@@ -183,13 +200,22 @@ public class OrderController {
     }
 
     @PutMapping("/requestRefund/{orderId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<String> requestRefund(
             @PathVariable String orderId,
-            @RequestParam List<String> productIds,
-            @RequestParam List<String> quantities,
-            Authentication auth
+            @RequestParam String userId,
+            @RequestParam String productId,
+            @RequestParam String quantity
     ) {
-        String userId = auth.getName();
-        return orderService.requestRefund(orderId, userId, productIds,quantities);
+        return orderService.requestRefundSingle(orderId, userId, productId, quantity);
     }
+
+
+    @GetMapping("/patchInvoiceDates")
+    public ResponseEntity<String> patchInvoiceDates() {
+        orderService.patchMissingInvoiceDates();
+        return ResponseEntity.ok("Invoice dates patched.");
+    }
+
+
 }
