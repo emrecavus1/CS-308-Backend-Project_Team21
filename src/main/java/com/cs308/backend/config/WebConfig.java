@@ -1,5 +1,7 @@
 package com.cs308.backend.config;
 
+import jakarta.servlet.Filter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -19,5 +21,14 @@ public class WebConfig {
                         .allowCredentials(true);
             }
         };
+    }
+
+    @Bean
+    public FilterRegistrationBean<TabAwareRequestFilter> tabAwareFilter() {
+        FilterRegistrationBean<TabAwareRequestFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(new TabAwareRequestFilter());
+        registrationBean.addUrlPatterns("/*");
+        registrationBean.setOrder(1); // Run before JWT filter
+        return registrationBean;
     }
 }
