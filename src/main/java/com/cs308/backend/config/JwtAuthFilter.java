@@ -35,25 +35,24 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         .orElseThrow(() -> new IllegalArgumentException("Invalid or expired token"));
 
                 User user = secToken.getUser();
-                // You can load real roles/authorities here if you have them
+
+                // Use user's role or authorities here if needed
                 var auth = new UsernamePasswordAuthenticationToken(
-                        user.getUserId(),
+                        user.getUserId(),  // principal
                         null,
-                        List.of()
+                        List.of()          // authorities
                 );
+
                 SecurityContextHolder.getContext().setAuthentication(auth);
 
             } catch (IllegalArgumentException ex) {
-                // token missing / expired
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\":\"" + ex.getMessage() + "\"}");
-                return;  // do not continue down filter chain
+                return;
             }
         }
 
-        // Either no Authorization header or a valid token → continue
         chain.doFilter(request, response);
     }
-
 }

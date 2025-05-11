@@ -101,32 +101,39 @@ public class PaymentService {
             return ResponseEntity.badRequest()
                     .body("Order does not belong to this user.");
         }
-        // … existing validation & payment creation …
 
-        // Update order object & save
+        // Update order fields
         order.setPaid(true);
         order.setStatus("Processing");
         order.setCardNumber(cardNumber);
         order.setExpiryDate(expiryDate);
         order.setCvv(cvv);
 
-        // ← NEW: decrease stock now that the purchase is final
-        List<String>  productIds  = order.getProductIds();
-        List<Integer> quantities  = order.getQuantities();
+        // Decrease product stock
+        List<String> productIds = order.getProductIds();
+        List<Integer> quantities = order.getQuantities();
         for (int i = 0; i < productIds.size(); i++) {
-            String  pid = productIds.get(i);
-            int     qty = quantities.get(i);
+            String pid = productIds.get(i);
+            int qty = quantities.get(i);
             productRepository.findById(pid).ifPresent(prod -> {
                 prod.setStockCount(prod.getStockCount() - qty);
                 productRepository.save(prod);
             });
         }
 
-        // Send invoice (wrapped in try/catch as before)
-        try {
-            invoiceService.emailPdfInvoice(orderId);
-            String filePath = "invoices/invoice-" + orderId + ".pdf";
+        if (order.getInvoiceSentDate() == null) {
+            order.setInvoiceSentDate(LocalDateTime.now());
+        }
 
+        // Save order before email generation
+        orderRepository.save(order);
+
+        try {
+            // Send email
+            invoiceService.emailPdfInvoice(orderId);
+
+            // Generate & save PDF
+            String filePath = "invoices/invoice-" + orderId + ".pdf";
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
@@ -140,25 +147,21 @@ public class PaymentService {
                     expiryDate,
                     cvv
             );
-            Files.createDirectories(Paths.get("invoices")); // Create directory if it doesn't exist
+
+            Files.createDirectories(Paths.get("invoices"));
             Files.write(Paths.get(filePath), pdfBytes);
 
-            // 2️⃣ Save path to order
+            // Save path to order & persist it again
             order.setInvoicePath(filePath);
+            orderRepository.save(order); // ✅ save again after setting path
+
         } catch (Exception e) {
             throw new IllegalStateException("Payment succeeded but failed to send invoice", e);
         }
 
-        if (order.getInvoiceSentDate() == null) {
-            //order.setInvoiceSentDate(MongoIdUtils.extractTimestampFromObjectId(order.getOrderId()));
-            order.setInvoiceSentDate(LocalDateTime.now());
-        }
-
-
-        orderRepository.save(order);
-
         return ResponseEntity.ok("Payment processed, stock updated & invoice emailed!");
     }
+
 
 
     public Optional<Payment> getPaymentByOrderId(String orderId) {
