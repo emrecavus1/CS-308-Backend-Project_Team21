@@ -33,11 +33,14 @@ public class CartService {
             Cart cart;
             boolean isNew = false;
             if (cartId == null || !cartRepository.existsById(cartId)) {
-                cart   = new Cart();
-                cartId = UUID.randomUUID().toString();
+                cart = new Cart();
+                if (cartId == null) {
+                    cartId = UUID.randomUUID().toString().replaceAll("[^a-zA-Z0-9\\-]", "");
+                }
                 cart.setCartId(cartId);
-                isNew  = true;
-            } else {
+                isNew = true;
+            }
+            else {
                 cart = cartRepository.findById(cartId)
                         .orElseThrow(); // existsById already checked
             }
@@ -99,5 +102,6 @@ public class CartService {
                 .orElseThrow(() -> new IllegalArgumentException("Cart not found: " + cartId));
         return cart.getItems();
     }
+
 
 }

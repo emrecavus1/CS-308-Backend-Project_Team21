@@ -28,14 +28,16 @@ public class MainController {
     private final UserService userService;
     private final ReviewService reviewService;
     private final CartService cartService;
+    private final CartRepository cartRepository;
 
 
-    public MainController(ProductService productService, CategoryService categoryService, ReviewService reviewService, UserService userService, CartService cartService) {
+    public MainController(ProductService productService, CategoryService categoryService, ReviewService reviewService, UserService userService, CartService cartService, CartRepository cartRepository) {
         this.productService = productService;
         this.categoryService = categoryService;
         this.reviewService = reviewService;
         this.userService = userService;
         this.cartService = cartService;
+        this.cartRepository = cartRepository;
     }
 
 
@@ -156,30 +158,54 @@ public class MainController {
 
     @PostMapping("/cart/add")
     public ResponseEntity<AddToCartResponse> addToCart(
-            @CookieValue(value="CART_ID", required=false) String cartId,
             @RequestParam String productId,
-            HttpServletResponse servletResponse
+            @RequestParam(required = false) String tabId,
+            @CookieValue(value = "CART_ID", required = false) String cookieCartId,
+            @CookieValue(value = "TAB_CART_ID", required = false) String tabCookieCartId,
+            HttpServletResponse response
     ) {
-        ResponseEntity<AddToCartResponse> resp = cartService.addToCart(cartId, productId);
-
-
-        if (resp.getStatusCode().is2xxSuccessful()) {
-            AddToCartResponse body = resp.getBody();
-            if (body != null && (cartId == null || !cartId.equals(body.getCartId()))) {
-                ResponseCookie cookie = ResponseCookie.from("CART_ID", body.getCartId())
-                        .httpOnly(true)
-                        .sameSite("Lax")
-                        // .secure(true)    ← remove or comment this out for local HTTP
-                        .path("/")
-                        .maxAge(Duration.ofDays(30))
-                        .build();
-                servletResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-            }
+        // ✅ Normalize tabId in case it comes as "abc,abc"
+        if (tabId != null && tabId.contains(",")) {
+            tabId = tabId.split(",")[0];
         }
 
+        String cartId = null;
 
-        return resp;
+        // ✅ Step 1: Select cartId priority
+        if (tabId != null && tabCookieCartId != null) {
+            cartId = tabCookieCartId;
+        } else if (tabId != null) {
+            cartId = "cart-" + tabId;
+        } else {
+            cartId = "cart-" + UUID.randomUUID();
+        }
+
+        // ✅ Step 2: Sanitize cartId (avoid illegal characters)
+        cartId = cartId.replaceAll("[^a-zA-Z0-9\\-]", "");
+
+        // ✅ Step 3: Always update tab-specific cookie
+        if (tabId != null) {
+            ResponseCookie cookie = ResponseCookie.from("TAB_CART_ID", cartId)
+                    .httpOnly(false)  // if you want JS access to it
+                    .path("/")
+                    .sameSite("Lax")
+                    .maxAge(Duration.ofDays(30))
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        }
+
+        // ✅ Logging for debug
+        System.out.println("🛒 AddToCart endpoint hit with:");
+        System.out.println("→ tabId = " + tabId);
+        System.out.println("→ cookieCartId = " + cookieCartId);
+        System.out.println("→ tabCookieCartId = " + tabCookieCartId);
+        System.out.println("→ final cartId = " + cartId);
+
+        return cartService.addToCart(cartId, productId);
     }
+
+
+
 
 
 
@@ -188,28 +214,36 @@ public class MainController {
 
     @GetMapping("/items")
     public ResponseEntity<List<CartItem>> getCartItems(
-            @CookieValue(value="CART_ID", required=false) String cartId
+            @CookieValue(value = "TAB_CART_ID", required = false) String tabCartId,
+            @RequestParam(required = false) String tabId
     ) {
-        System.out.println("→ getCartItems, received cookie CART_ID=" + cartId);
+        // Normalize tabId if needed
+        if (tabId != null && tabId.contains(",")) {
+            tabId = tabId.split(",")[0];
+        }
 
+        String cartId = tabCartId;
 
-        if (cartId == null) {
-            // no cart yet → return empty list
+        // Fallback logic: construct from tabId if cookie is missing
+        if (cartId == null && tabId != null) {
+            cartId = "cart-" + tabId;
+            cartId = cartId.replaceAll("[^a-zA-Z0-9\\-]", "");
+        }
+
+        System.out.println("→ getCartItems called:");
+        System.out.println("→ tabId = " + tabId);
+        System.out.println("→ tabCartId (cookie) = " + tabCartId);
+        System.out.println("→ final cartId = " + cartId);
+
+        if (cartId == null || !cartRepository.existsById(cartId)) {
             return ResponseEntity.ok(Collections.emptyList());
         }
 
-
-        // 1) fetch the items into a local variable
         List<CartItem> items = cartService.getCartItems(cartId);
-
-
-        // 2) log what you’re about to return
-        System.out.println("→ getCartItems, returning items: " + items);
-
-
-        // 3) return the same list
+        System.out.println("→ returning items: " + items);
         return ResponseEntity.ok(items);
     }
+
 
 
 

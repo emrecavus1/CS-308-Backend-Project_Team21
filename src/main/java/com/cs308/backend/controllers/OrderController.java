@@ -40,28 +40,53 @@ public class OrderController {
     @PutMapping("/order")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<String> processPayment(
-            @CookieValue("CART_ID") String cartId,
+            @CookieValue(value = "TAB_CART_ID", required = false) String tabCartId,
+            @RequestParam(required = false) String tabId,
             @RequestParam String cardNumber,
             @RequestParam String expiryDate,
             @RequestParam String cvv,
             Authentication auth
-    ){
+    ) {
         String userId = auth.getName();
-        String orderId = orderService.createOrderFromCart(cartId, userId);
+        String cartId = null;
 
-        ResponseEntity<String> result = paymentService.processPayment(
-                userId, orderId, cardNumber, expiryDate, cvv);
-
-        if (result.getStatusCode().is2xxSuccessful()) {
-            orderHistoryService.recordOrderAndClearCart(userId, orderId);
-            cartService.clearCart(cartId);
-
-            // ⭐⭐ Here's the important change:
-            return ResponseEntity.ok(orderId);
+        // Normalize and prioritize cart ID
+        if (tabId != null && tabId.contains(",")) {
+            tabId = tabId.split(",")[0];
         }
 
-        return result;
+        if (tabId != null && tabCartId != null) {
+            cartId = tabCartId;
+        } else if (tabId != null) {
+            cartId = "cart-" + tabId;
+        } else {
+            return ResponseEntity.badRequest().body("Cart ID could not be resolved.");
+        }
+
+        // Sanitize for cookie safety
+        cartId = cartId.replaceAll("[^a-zA-Z0-9\\-]", "");
+
+        try {
+            String orderId = orderService.createOrderFromCart(cartId, userId);
+
+            ResponseEntity<String> result = paymentService.processPayment(
+                    userId, orderId, cardNumber, expiryDate, cvv);
+
+            if (result.getStatusCode().is2xxSuccessful()) {
+                orderHistoryService.recordOrderAndClearCart(userId, orderId);
+                cartService.clearCart(cartId);
+                return ResponseEntity.ok(orderId);
+            }
+
+            return result;
+
+        } catch (Exception e) {
+            e.printStackTrace(); // Log the error
+            return ResponseEntity.internalServerError()
+                    .body("Payment failed: " + e.getMessage());
+        }
     }
+
 
 
 
@@ -235,6 +260,11 @@ public class OrderController {
     @PutMapping("/refund/approve/{requestId}")
     public ResponseEntity<String> approveRefund(@PathVariable String requestId) {
         return orderService.approveRefund(requestId);
+    }
+
+    @DeleteMapping("/refund/reject/{requestId}")
+    public ResponseEntity<String> rejectRefund(@PathVariable String requestId) {
+        return orderService.rejectRefund(requestId);
     }
 
     @GetMapping("/patchDeliveredRefunded")

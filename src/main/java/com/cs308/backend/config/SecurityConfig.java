@@ -35,10 +35,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // ✅ No sessions
                 .authorizeHttpRequests(auth -> auth
-
-                        // public endpoints
                         .requestMatchers(
                                 "/api/auth/signup",
                                 "/api/auth/login",
@@ -68,9 +66,7 @@ public class SecurityConfig {
                         // and allow any other URL in your app
                         .anyRequest().permitAll()
                 )
-                // insert your JWT filter
-                .addFilterBefore(jwtAuthFilter(),
-                        UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthFilter(), UsernamePasswordAuthenticationFilter.class)
                 .httpBasic(Customizer.withDefaults());
 
         return http.build();
@@ -81,4 +77,5 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
+
 
