@@ -105,9 +105,10 @@ public class PaymentService {
         // Update order fields
         order.setPaid(true);
         order.setStatus("Processing");
-        order.setCardNumber(cardNumber);
-        order.setExpiryDate(expiryDate);
-        order.setCvv(cvv);
+        String maskedCard = "*".repeat(cardNumber.length() - 4) + cardNumber.substring(cardNumber.length() - 4);
+        order.setCardNumber(maskedCard);
+        order.setCvv("***"); // Mask CVV
+        order.setExpiryDate(expiryDate); // This is usually OK to store in plain format
 
         // Decrease product stock
         List<String> productIds = order.getProductIds();

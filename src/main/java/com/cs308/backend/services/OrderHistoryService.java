@@ -67,16 +67,15 @@ public class OrderHistoryService {
     }
 
     public ResponseEntity<List<String>> viewPreviousOrdersByUser(String userId) {
-        // Only include shipped + not refunded orders
         List<Order> shippedOrders = orderRepository.findByUserIdAndShippedTrue(userId);
 
         List<String> ids = shippedOrders.stream()
-                .filter(o -> !"Refunded".equalsIgnoreCase(o.getStatus()))  // ✅ exclude refunded
                 .map(Order::getOrderId)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ids);
     }
+
 
 
     public ResponseEntity<List<String>> viewActiveOrdersByUser(String userId) {
@@ -141,5 +140,7 @@ public class OrderHistoryService {
 
         return ResponseEntity.ok("Order removed from history.");
     }
+
+
 
 }
