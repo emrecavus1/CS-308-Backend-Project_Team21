@@ -262,30 +262,6 @@ public class OrderService {
         }
     }
 
-    public void patchMissingInvoiceDates() {
-        List<Order> allOrders = orderRepository.findAll();
-
-        for (Order o : allOrders) {
-            if (o.getInvoiceSentDate() == null && o.isShipped() && "Delivered".equalsIgnoreCase(o.getStatus())) {
-                LocalDateTime generatedTime;
-
-                try {
-                    // Try parsing as Mongo ObjectId
-                    generatedTime = MongoIdUtils.extractTimestampFromObjectId(o.getOrderId());
-                } catch (Exception e) {
-                    // Fallback to now if UUID or invalid ObjectId
-                    generatedTime = LocalDateTime.now();
-                    System.err.println("⚠️ Couldn't parse ObjectId for order " + o.getOrderId() + ", using now() instead.");
-                }
-
-                o.setInvoiceSentDate(generatedTime);
-                orderRepository.save(o);
-                System.out.println("✅ Patched invoiceSentDate for order " + o.getOrderId() + " → " + generatedTime);
-            }
-        }
-    }
-
-
     public ResponseEntity<String> requestRefundSingle(
             String orderId,
             String userId,
@@ -345,53 +321,78 @@ public class OrderService {
     }
 
 
-    public void patchMissingOrderPrices() {
-        List<Order> allOrders = orderRepository.findAll();
 
-        for (Order o : allOrders) {
-            List<Double> prices = o.getPrices();
+    public ResponseEntity<Map<String, Object>> calculateRevenueCostProfit(String startDate, String endDate) {
+        try {
+            LocalDateTime start = LocalDateTime.parse(startDate);
+            LocalDateTime end   = LocalDateTime.parse(endDate);
 
-            // Skip if already filled
-            if (prices != null && !prices.isEmpty()) continue;
+            List<Order> orders = orderRepository.findAll().stream()
+                    .filter(o -> o.getInvoiceSentDate() != null)
+                    .filter(o -> !o.getInvoiceSentDate().isBefore(start) && !o.getInvoiceSentDate().isAfter(end))
+                    .toList();
 
-            List<String> productIds = o.getProductIds();
-            if (productIds == null || productIds.isEmpty()) continue;
+            double totalRevenue = 0.0;
+            double totalCost = 0.0;
+            List<Map<String, Object>> breakdown = new ArrayList<>();
 
-            List<Double> filledPrices = new ArrayList<>();
+            for (Order order : orders) {
+                List<String> productIds = order.getProductIds();
+                List<Integer> quantities = order.getQuantities();
+                List<Double> prices = order.getPrices();
 
-            boolean skip = false;
-            for (String pid : productIds) {
-                Optional<Product> prodOpt = productRepository.findById(pid);
-                if (prodOpt.isEmpty()) {
-                    System.err.println("⚠️ Missing product " + pid + " in order " + o.getOrderId());
-                    skip = true;
-                    break;
+                for (int i = 0; i < productIds.size(); i++) {
+                    String pid = productIds.get(i);
+                    int qty = quantities.get(i);
+                    double price = prices.get(i);
+
+                    double revenue = price * qty;
+                    double cost;
+
+                    Optional<Product> optProduct = productRepository.findById(pid);
+                    if (optProduct.isPresent()) {
+                        Product p = optProduct.get();
+                        cost = (p.getProductionCost() != null ? p.getProductionCost() : price * 0.5) * qty;
+                    } else {
+                        cost = price * 0.5 * qty; // fallback
+                    }
+
+                    totalRevenue += revenue;
+                    totalCost += cost;
+
+                    Map<String, Object> row = new HashMap<>();
+                    row.put("productId", pid);
+                    row.put("quantity", qty);
+                    row.put("revenue", revenue);
+                    row.put("cost", cost);
+                    row.put("profit", revenue - cost);
+                    breakdown.add(row);
                 }
-                filledPrices.add(prodOpt.get().getPrice());
             }
 
-            if (!skip) {
-                o.setPrices(filledPrices);
-                orderRepository.save(o);
-                System.out.println("✅ Patched prices for order " + o.getOrderId());
-            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("totalRevenue", totalRevenue);
+            result.put("totalCost", totalCost);
+            result.put("profit", totalRevenue - totalCost);
+            result.put("breakdown", breakdown);
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to calculate analytics", "details", e.getMessage()));
         }
     }
 
-
-
-    public void patchDeliveredRefundedOrders() {
-        List<Order> delivered = orderRepository.findByStatusIgnoreCase("Delivered");
-        for (Order o : delivered) {
-            boolean hasRefund = refundRequestRepository.findByOrderId(o.getOrderId())
-                    .stream().anyMatch(RefundRequest::isProcessed);
-            if (hasRefund) {
-                o.setStatus("Refunded");
-                orderRepository.save(o);
-                System.out.println("🔁 Patched refunded-delivered order: " + o.getOrderId());
-            }
-        }
+    public List<Order> getAllOrders() {
+        return orderRepository.findAll();
     }
+
+    public void saveOrder(Order order) {
+        orderRepository.save(order);
+    }
+
 
 
 

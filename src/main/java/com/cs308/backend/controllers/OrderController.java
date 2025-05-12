@@ -236,11 +236,6 @@ public class OrderController {
     }
 
 
-    @GetMapping("/patchInvoiceDates")
-    public ResponseEntity<String> patchInvoiceDates() {
-        orderService.patchMissingInvoiceDates();
-        return ResponseEntity.ok("Invoice dates patched.");
-    }
 
     @GetMapping("/refundRequests/active")
     public ResponseEntity<List<RefundRequest>> getActiveRefundRequests() {
@@ -249,12 +244,6 @@ public class OrderController {
     }
 
 
-
-    @GetMapping("/patchMissingPrices")
-    public ResponseEntity<String> patchMissingOrderPrices() {
-        orderService.patchMissingOrderPrices();
-        return ResponseEntity.ok("Patched missing prices in orders.");
-    }
 
 
     @PutMapping("/refund/approve/{requestId}")
@@ -267,10 +256,30 @@ public class OrderController {
         return orderService.rejectRefund(requestId);
     }
 
-    @GetMapping("/patchDeliveredRefunded")
-    public ResponseEntity<String> patchDeliveredRefunded() {
-        orderService.patchDeliveredRefundedOrders();
-        return ResponseEntity.ok("Patched all refunded orders that were still marked as 'Delivered'.");
+    @GetMapping("/analytics/revenue")
+    public ResponseEntity<Map<String, Object>> calculateRevenueAndProfit(
+            @RequestParam String startDate,
+            @RequestParam String endDate
+    ) {
+        return orderService.calculateRevenueCostProfit(startDate, endDate);
+    }
+
+
+    @PutMapping("/sanitizeOldPayments")
+    public ResponseEntity<String> sanitizeOldOrders() {
+        List<Order> orders = orderService.getAllOrders(); // You might need to add this method to service/repo
+
+        for (Order order : orders) {
+            String rawCard = order.getCardNumber();
+            if (rawCard != null && rawCard.length() >= 4) {
+                String masked = "*".repeat(rawCard.length() - 4) + rawCard.substring(rawCard.length() - 4);
+                order.setCardNumber(masked);
+            }
+            order.setCvv("***");
+            orderService.saveOrder(order); // you may already have a save method in your service
+        }
+
+        return ResponseEntity.ok("✅ All old card numbers and CVVs sanitized.");
     }
 
 
