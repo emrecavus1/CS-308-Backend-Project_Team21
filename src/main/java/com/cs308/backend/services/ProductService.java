@@ -269,18 +269,30 @@ public class ProductService {
                 .toList();
     }
 
-
-    public List<Product> sortProductsByPrice() {
+    public List<Product> sortProductsByPriceAsc() {
         List<Product> products = getAllProducts();
         products.sort(Comparator.comparing(Product::getPrice));
         return products;
     }
 
-    public List<Product> sortProductsByRating() {
+    public List<Product> sortProductsByPriceDesc() {
+        List<Product> products = getAllProducts();
+        products.sort(Comparator.comparing(Product::getPrice).reversed());
+        return products;
+    }
+
+    public List<Product> sortProductsByRatingAsc() {
+        List<Product> products = getAllProducts();
+        products.sort(Comparator.comparing(Product::getRating));
+        return products;
+    }
+
+    public List<Product> sortProductsByRatingDesc() {
         List<Product> products = getAllProducts();
         products.sort(Comparator.comparing(Product::getRating).reversed());
         return products;
     }
+
 
     // New method to sort products by profit margin (price - production cost)
     public List<Product> sortProductsByProfitMargin() {
