@@ -271,18 +271,30 @@ public class MainController {
     }
 
 
-    @GetMapping("/sortProductsByPrice")
-    public ResponseEntity<List<Product>> sortProductsByPrice(@RequestParam(defaultValue = "asc") String order) {
-        List<Product> sortedProducts = productService.sortProductsByPrice();
+    @GetMapping("/sortProductsByPriceAsc")
+    public ResponseEntity<List<Product>> sortProductsByPriceAsc() {
+        List<Product> sortedProducts = productService.sortProductsByPriceAsc();
         return ResponseEntity.ok(sortedProducts);
     }
 
-
-    @GetMapping("/sortProductsByRating")
-    public ResponseEntity<List<Product>> sortProductsByRating(@RequestParam(defaultValue = "desc") String order) {
-        List<Product> sortedProducts = productService.sortProductsByRating();
+    @GetMapping("/sortProductsByPriceDesc")
+    public ResponseEntity<List<Product>> sortProductsByPriceDesc() {
+        List<Product> sortedProducts = productService.sortProductsByPriceDesc();
         return ResponseEntity.ok(sortedProducts);
     }
+
+    @GetMapping("/sortProductsByRatingAsc")
+    public ResponseEntity<List<Product>> sortProductsByRatingAsc() {
+        List<Product> sortedProducts = productService.sortProductsByRatingAsc();
+        return ResponseEntity.ok(sortedProducts);
+    }
+
+    @GetMapping("/sortProductsByRatingDesc")
+    public ResponseEntity<List<Product>> sortProductsByRatingDesc() {
+        List<Product> sortedProducts = productService.sortProductsByRatingDesc();
+        return ResponseEntity.ok(sortedProducts);
+    }
+
 
     @GetMapping("/reviews/pending-comments")
     public ResponseEntity<List<Map<String, String>>> getPendingCommentsWithUserIds() {
