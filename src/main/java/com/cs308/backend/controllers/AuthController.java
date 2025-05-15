@@ -170,5 +170,11 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
+    @PatchMapping("/assign-taxids")
+    public ResponseEntity<String> assignTaxIdsToUsers() {
+        return userService.assignTaxIdsToUsers();
+    }
+
+
 
 }

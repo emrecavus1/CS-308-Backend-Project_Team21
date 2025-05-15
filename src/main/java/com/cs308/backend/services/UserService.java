@@ -123,4 +123,30 @@ public class UserService {
                 .orElseThrow(() ->
                         new UsernameNotFoundException("No user with ID " + userId));
     }
+
+    private String generateRandomTaxId() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        Random random = new Random();
+        StringBuilder sb = new StringBuilder(8);
+        for (int i = 0; i < 8; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
+    public ResponseEntity<String> assignTaxIdsToUsers() {
+        List<User> users = userRepository.findAll();
+        int updatedCount = 0;
+
+        for (User user : users) {
+            if (user.getTaxId() == null || user.getTaxId().isBlank()) {
+                user.setTaxId(generateRandomTaxId());
+                userRepository.save(user);
+                updatedCount++;
+            }
+        }
+
+        return ResponseEntity.ok("Tax IDs assigned to " + updatedCount + " users.");
+    }
+
 }

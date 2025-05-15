@@ -30,6 +30,7 @@ public class User extends Auditable {
     private String specificAddress;
     private String token;
     private List<String> wishList;
+    private String taxId;
 
     // Tokens associated with the user; stored as references to SecureToken documents
     @DBRef
