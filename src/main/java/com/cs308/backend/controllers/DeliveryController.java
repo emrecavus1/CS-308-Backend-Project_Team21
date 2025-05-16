@@ -52,6 +52,7 @@ public class DeliveryController {
             int qty = quantities.get(i);
 
             Map<String, Object> entry = new HashMap<>();
+            entry.put("productId", p.getProductId());
             entry.put("productName", p.getProductName());
             entry.put("quantity", qty);
             entry.put("totalPrice", qty * p.getPrice());
