@@ -103,5 +103,21 @@ public class CartService {
         return cart.getItems();
     }
 
+    public ResponseEntity<Void> removeFromCart(String cartId, String productId) {
+        Optional<Cart> optCart = cartRepository.findById(cartId);
+        if (optCart.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        Cart cart = optCart.get();
+        List<CartItem> items = cart.getItems();
+        boolean removed = items.removeIf(ci -> ci.getProductId().equals(productId));
+        if (!removed) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        cart.setItems(items);
+        cartRepository.save(cart);
+        return ResponseEntity.ok().build();
+    }
+
 
 }
