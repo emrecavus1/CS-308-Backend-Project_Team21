@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.LocalDateTime;
 import java.util.Collections;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -115,4 +116,67 @@ class RefundTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(rejected));
     }
+
+    // 1) requestRefund with missing required parameter → 400 Bad Request
+    @Test
+    void requestRefund_MissingParams_ShouldReturnBadRequest() throws Exception {
+        mockMvc.perform(put("/api/order/requestRefund/{orderId}", "order123")
+                        // omit userId/productId/quantity
+                )
+                .andExpect(status().isBadRequest());
+    }
+
+    // 2) requestRefund when service returns 400 → Bad Request
+    @Test
+    void requestRefund_ServiceReturnsBadRequest_ShouldReturnBadRequest() throws Exception {
+        when(orderService.requestRefundSingle(any(), any(), any(), any()))
+                .thenReturn(ResponseEntity.badRequest().body("Invalid refund"));
+        mockMvc.perform(put("/api/order/requestRefund/{orderId}", "order123")
+                        .param("userId", "u1")
+                        .param("productId", "p1")
+                        .param("quantity", "1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Invalid refund"));
+    }
+
+    // 3) requestRefund when service throws → 500 Internal Server Error
+    @Test
+    void requestRefund_ServiceThrowsException_ShouldReturnServerError() throws Exception {
+        when(orderService.requestRefundSingle(any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("boom"));
+        mockMvc.perform(put("/api/order/requestRefund/{orderId}", "order123")
+                        .param("userId", "u1")
+                        .param("productId", "p1")
+                        .param("quantity", "1"))
+                .andExpect(status().isInternalServerError());
+    }
+
+    // 4) getActiveRefundRequests with no data → empty JSON array
+    @Test
+    void getActiveRefundRequests_NoRequests_ShouldReturnEmptyList() throws Exception {
+        when(orderService.getRefundRequestsByProcessed(false))
+                .thenReturn(Collections.emptyList());
+        mockMvc.perform(get("/api/order/refundRequests/active"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
+
+    // 5) approveRefund for non-existent ID → 404 Not Found
+    @Test
+    void approveRefund_NonexistentId_ShouldReturnNotFound() throws Exception {
+        when(orderService.approveRefund("nope"))
+                .thenReturn(ResponseEntity.notFound().build());
+        mockMvc.perform(put("/api/order/refund/approve/{requestId}", "nope"))
+                .andExpect(status().isNotFound());
+    }
+
+    // 6) rejectRefund for non-existent ID → 404 Not Found
+    @Test
+    void rejectRefund_NonexistentId_ShouldReturnNotFound() throws Exception {
+        when(orderService.rejectRefund("nope"))
+                .thenReturn(ResponseEntity.notFound().build());
+        mockMvc.perform(delete("/api/order/refund/reject/{requestId}", "nope"))
+                .andExpect(status().isNotFound());
+    }
+
 }

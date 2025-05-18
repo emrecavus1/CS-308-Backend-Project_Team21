@@ -153,6 +153,36 @@ public class CartServiceTest {
         assertEquals(testProduct.getProductId(), result.get(0).getProductId());
         assertEquals(2, result.get(0).getQuantity());
     }
+    @Test
+    public void removeFromCart_ExistingItem_Successful() {
+        // Arrange
+        CartItem existing = new CartItem(testProduct.getProductId(), 2, testProduct.getPrice());
+        testCart.getItems().add(existing);
+        when(cartRepository.findById(cartId)).thenReturn(Optional.of(testCart));
+        when(cartRepository.save(any(Cart.class))).thenReturn(testCart);
+
+        // Act
+        ResponseEntity<Void> response = cartService.removeFromCart(cartId, testProduct.getProductId());
+
+        // Assert
+        assertEquals(200, response.getStatusCodeValue());
+        assertTrue(testCart.getItems().isEmpty());
+        verify(cartRepository, times(1)).save(testCart);
+    }
+
+    @Test
+    public void removeFromCart_NonexistentItem_ShouldReturnNotFound() {
+        // Arrange
+        when(cartRepository.findById(cartId)).thenReturn(Optional.of(testCart));
+
+        // Act
+        ResponseEntity<Void> response = cartService.removeFromCart(cartId, "missingId");
+
+        // Assert
+        assertEquals(404, response.getStatusCodeValue());
+        verify(cartRepository, never()).save(any(Cart.class));
+    }
+
 }
 
 // No need to define AddToCartResponse here as it's already defined in com.cs308.backend.models package
